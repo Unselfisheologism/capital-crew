@@ -31,6 +31,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+          cache-read-only: true
+
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -41,36 +47,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Make Gradlew Executable
-        run: chmod +x gradlew
+      - name: Build Debug APK
+        run: gradle assembleDebug --no-daemon
 
-      - name: Setup Signing Keys
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release.jks
-          cat > keystore.properties << EOF
-          storeFile=release.jks
-          storePassword=$ANDROID_KEYSTORE_PASSWORD
-          keyAlias=$ANDROID_KEY_ALIAS
-          keyPassword=$ANDROID_KEY_PASSWORD
-          EOF
-
-      - name: Build Release APK
-        run: ./gradlew assembleRelease --no-daemon
-
-      - name: Upload Release APK
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-${{ github.sha }}
-          path: capital-crew-android/app/build/outputs/apk/release/*.apk
+          path: capital-crew-android/app/build/outputs/apk/debug/*.apk
           retention-days: 14
 
       - name: Build Release AAB
-        run: ./gradlew bundleRelease --no-daemon
+        run: gradle bundleRelease --no-daemon
 
       - name: Upload Release AAB
         uses: actions/upload-artifact@v4
@@ -78,9 +66,3 @@ jobs:
           name: android-aab-${{ github.sha }}
           path: capital-crew-android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
-
-      - name: Cleanup Secrets
-        if: always()
-        run: |
-          rm -f release.jks
-          rm -f keystore.properties
