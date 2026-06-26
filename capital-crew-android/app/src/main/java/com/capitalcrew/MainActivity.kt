@@ -36,6 +36,9 @@ class MainActivity : AppCompatActivity() {
             settings.allowContentAccess = true
             settings.loadWithOverviewMode = true
             settings.useWideViewPort = true
+            settings.setSupportZoom(true)
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
             setBackgroundColor(android.graphics.Color.WHITE)
 
             webViewClient = object : WebViewClient() {
