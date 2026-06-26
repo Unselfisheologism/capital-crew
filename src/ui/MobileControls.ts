@@ -126,7 +126,6 @@ export class MobileControlsOverlay {
 
   /** Build the rotating-smartphone overlay; only injected into the DOM. */
   private installOrientationLock(): void {
-    document.body.classList.add('is-mobile'); // ensure CSS hides game in portrait
     // Show lock overlay only on portrait phones. We also gate it inside
     // updateOrientationLock() based on viewport metrics.
     const overlay = document.createElement('div');
@@ -176,6 +175,7 @@ export class MobileControlsOverlay {
     if (!root) return;
     this.rootEl = root as HTMLDivElement;
     this.rootEl.innerHTML = '';
+    this.rootEl.style.display = 'block';
 
     // ── Joystick (small, single-finger) ──
     const joystickWrap = document.createElement('div');

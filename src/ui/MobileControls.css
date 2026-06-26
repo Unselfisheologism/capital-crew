@@ -79,10 +79,7 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   box-sizing: border-box;
 }
 
-body.is-mobile #cc-mobile-controls { display: block; }
-@media (hover: none) and (pointer: coarse) {
-  #cc-mobile-controls { display: block; }
-}
+/* Controls only shown via JS when isMobileDevice() returns true. */
 
 /* ─── Joystick (bottom-left thumb zone) ─────────────────────────────── */
 .cc-joystick {
