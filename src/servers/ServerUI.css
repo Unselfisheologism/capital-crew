@@ -1,0 +1,280 @@
+/* Capital Crew — Server Lobby */
+
+.cc-srv-root {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, #1a1a3a 0%, #0a0a1e 70%, #050510 100%);
+  color: #e8e8f0;
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  animation: cc-srv-in 0.3s ease-out;
+  overflow-y: auto;
+}
+
+@keyframes cc-srv-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cc-srv-header {
+  padding: 22px 26px 14px;
+  border-bottom: 1px solid rgba(120, 120, 200, 0.18);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.cc-srv-title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #ffd700;
+  text-shadow: 0 0 18px rgba(255, 215, 0, 0.35);
+}
+
+.cc-srv-subtitle {
+  font-size: 12px;
+  color: #8888aa;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.cc-srv-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cc-srv-tab {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid rgba(120, 120, 200, 0.4);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #aaa;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.cc-srv-tab-active {
+  color: #1a1a2e;
+  background: linear-gradient(180deg, #ffd700, #d4a800);
+  border-color: #ffd700;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+}
+
+.cc-srv-body {
+  padding: 18px 22px 28px;
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+  flex: 1;
+}
+
+.cc-srv-card {
+  background: rgba(20, 20, 40, 0.92);
+  border: 1px solid rgba(120, 120, 200, 0.35);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cc-srv-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-srv-card-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 4px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cc-srv-card-meta {
+  font-size: 12px;
+  color: #aabbcc;
+}
+
+.cc-srv-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cc-srv-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(100, 100, 200, 0.5);
+  transition: transform 0.05s, background 0.1s;
+}
+
+.cc-srv-btn:hover { transform: translateY(-1px); }
+.cc-srv-btn-primary { background: linear-gradient(180deg, #ffd700, #d4a800); color: #1a1a2e; border-color: #ffd700; }
+.cc-srv-btn-danger { background: rgba(220, 80, 80, 0.8); }
+.cc-srv-btn-success { background: linear-gradient(180deg, #66dd99, #3aa86d); color: #1a1a2e; border-color: #66dd99; }
+
+.cc-srv-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.cc-srv-badge-public    { background: rgba(80, 180, 100, 0.35); color: #88ff88; }
+.cc-srv-badge-private   { background: rgba(220, 140, 60, 0.35); color: #ffcc88; }
+.cc-srv-badge-restricted { background: rgba(140, 100, 220, 0.35); color: #ccaaee; }
+.cc-srv-badge-temp     { background: rgba(100, 140, 220, 0.35); color: #aaccff; }
+.cc-srv-badge-persistent { background: rgba(140, 80, 200, 0.35); color: #ddbbff; }
+.cc-srv-badge-host     { background: rgba(255, 215, 0, 0.45); color: #1a1a2e; }
+
+.cc-srv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.cc-srv-field > label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #aaa;
+  text-transform: uppercase;
+}
+.cc-srv-input {
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(120, 120, 200, 0.4);
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.cc-srv-radio-group {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cc-srv-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(120, 120, 200, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #ccc;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  flex: 1;
+  min-width: 140px;
+  transition: all 0.15s;
+}
+
+.cc-srv-radio input { accent-color: #ffd700; }
+
+.cc-srv-radio-active {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.18);
+  color: #ffd700;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.25);
+}
+
+.cc-srv-error {
+  background: rgba(220, 80, 80, 0.25);
+  border: 1px solid rgba(220, 80, 80, 0.5);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #ffb0b0;
+  font-size: 13px;
+  margin-bottom: 14px;
+  display: none;
+}
+.cc-srv-error-show { display: block; }
+
+.cc-srv-success {
+  background: rgba(80, 200, 120, 0.18);
+  border: 1px solid rgba(80, 200, 120, 0.5);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #88ff88;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.cc-srv-row {
+  display: flex;
+  gap: 12px;
+}
+.cc-srv-row > * { flex: 1; }
+
+.cc-srv-tags-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(120, 120, 200, 0.4);
+  border-radius: 8px;
+}
+
+.cc-srv-tag {
+  background: rgba(120, 120, 200, 0.4);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cc-srv-tag-x {
+  cursor: pointer;
+  color: #ff9999;
+}
+
+.cc-srv-empty {
+  text-align: center;
+  padding: 36px 18px;
+  color: #888;
+  font-size: 14px;
+}
+
+.cc-srv-actions-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+.cc-srv-actions-row > * { flex: 1; }
+
+body.is-portrait .cc-srv-root { padding-bottom: 24px; }
+@media (max-width: 640px) {
+  .cc-srv-card { flex-direction: column; align-items: stretch; }
+  .cc-srv-card-actions { justify-content: stretch; }
+  .cc-srv-radio-group { flex-direction: column; }
+  .cc-srv-row { flex-direction: column; }
+}

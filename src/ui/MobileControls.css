@@ -1,0 +1,219 @@
+/* Capital Crew — Mobile Controls + Orientation Lock
+ *
+ * Landscape is the supported mobile orientation. The goal here is to keep
+ * the touch UI from crowding or clipping the Phaser game canvas:
+ *   • Respect iOS / Android safe-area insets (notch, home indicator).
+ *   • Joystick bottom-left, action strip vertically stacked right-edge —
+ *     matches how phones are held with both thumbs in landscape.
+ *   • Compact button size + scales down further on small-height viewports.
+ *   • Hide UI chrome (browser address bar / home indicator) by anchoring
+ *     to safe-area-inset-* instead of hard-coded viewport edges.
+ */
+
+.cc-orient-lock {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, #0a0a1e 0%, #1a1a3a 60%, #060614 100%);
+  color: #ffffff;
+  z-index: 99999;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 22px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  animation: cc-lk-in 0.3s ease-out;
+}
+
+@keyframes cc-lk-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.cc-orient-icon {
+  font-size: 96px;
+  margin-bottom: 18px;
+  animation: cc-lk-rot 2.4s ease-in-out infinite;
+}
+@keyframes cc-lk-rot {
+  0%   { transform: rotate(0deg); }
+  35%  { transform: rotate(90deg); }
+  65%  { transform: rotate(90deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.cc-orient-title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #ffd700;
+  margin-bottom: 12px;
+  text-shadow: 0 0 24px rgba(255, 215, 0, 0.4);
+}
+
+.cc-orient-msg {
+  font-size: 15px;
+  color: #bcc;
+  line-height: 1.6;
+  max-width: 360px;
+}
+
+/* Portrait phones — can't show landscape-only UI. */
+body.is-portrait #game-container       { visibility: hidden; }
+body.is-portrait #cc-mobile-controls   { display: none !important; }
+body.is-portrait .cc-orient-lock       { display: flex !important; }
+
+/* ─── Mobile controls container ─────────────────────────────────────── */
+#cc-mobile-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9990;
+  display: none;
+  /* Read once, share with all inner elements via env() lookups. */
+  padding-top:    max(env(safe-area-inset-top,    0px), 6px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px);
+  padding-left:   max(env(safe-area-inset-left,   0px), 6px);
+  padding-right:  max(env(safe-area-inset-right,  0px), 6px);
+  box-sizing: border-box;
+}
+
+body.is-mobile #cc-mobile-controls { display: block; }
+@media (hover: none) and (pointer: coarse) {
+  #cc-mobile-controls { display: block; }
+}
+
+/* ─── Joystick (bottom-left thumb zone) ─────────────────────────────── */
+.cc-joystick {
+  position: absolute;
+  left:   calc(env(safe-area-inset-left, 0px) + 14px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  pointer-events: auto;
+  touch-action: none;
+  /* default 110px — overridden by inline JS using clamp() to viewport. */
+  width:  110px;
+  height: 110px;
+}
+.cc-joystick-base {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.30);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.cc-joystick-knob {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0.15));
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+/* ─── Right-edge action strip (vertical, thumb-reachable) ───────────── */
+.cc-action-strip {
+  position: absolute;
+  right:  calc(env(safe-area-inset-right, 0px) + 10px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  pointer-events: auto;
+  touch-action: none;
+  display: grid;
+  /* default 4 cols × N rows, set inline by JS based on viewport */
+  grid-template-columns: repeat(4, 44px);
+  grid-auto-rows: 44px;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.40);
+  border-radius: 14px;
+  padding: 8px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  /* Avoid blowing through the top under landscape with a notch. */
+  max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+.cc-action-btn {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.06s, background 0.1s, filter 0.1s;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  padding: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.cc-action-btn:active {
+  transform: scale(0.92);
+  filter: brightness(1.18);
+}
+.cc-action-btn:focus-visible {
+  outline: 2px solid #ffd24a;
+  outline-offset: 2px;
+}
+
+/* ─── Compact mode for very short viewports (small-landscape phones) ── */
+@media (max-height: 380px) {
+  .cc-joystick       { width: 86px;  height: 86px; }
+  .cc-joystick-base  { width: 64px;  height: 64px; }
+  .cc-joystick-knob  { width: 28px;  height: 28px; }
+  .cc-action-strip {
+    grid-template-columns: repeat(4, 36px);
+    grid-auto-rows: 36px;
+    gap: 4px;
+    padding: 6px;
+  }
+  .cc-action-btn { font-size: 14px; }
+}
+
+/* Slim landscape (tall-phone ratio with limited horizontal room) */
+@media (max-aspect-ratio: 16/10) {
+  .cc-action-strip {
+    /* Switch to 3 cols to leave more game-canvas width free. */
+    grid-template-columns: repeat(3, 42px);
+  }
+}
+@media (max-aspect-ratio: 16/10) and (max-height: 380px) {
+  .cc-action-strip {
+    grid-template-columns: repeat(4, 34px);
+  }
+}
+
+/* ─── Help card overlay (toggled by `?` button) ─────────────────────── */
+.cc-help-card {
+  position: fixed;
+  inset: max(env(safe-area-inset-top, 12px), 12px)
+          max(env(safe-area-inset-right, 12px), 12px)
+          max(env(safe-area-inset-bottom, 12px), 12px)
+          max(env(safe-area-inset-left, 12px), 12px);
+  background: rgba(10, 10, 30, 0.96);
+  color: #fff;
+  border: 1px solid rgba(120, 120, 200, 0.4);
+  border-radius: 14px;
+  padding: 22px;
+  z-index: 9991;
+  pointer-events: auto;
+  font-family: inherit;
+  line-height: 1.6;
+  overflow-y: auto;
+  animation: cc-lk-in 0.2s ease-out;
+}
