@@ -48,6 +48,25 @@ class MainActivity : AppCompatActivity() {
                 ): Boolean {
                     return false // load everything in-app
                 }
+
+                override fun onPageFinished(view: WebView, url: String?) {
+                    super.onPageFinished(view, url)
+                    view.evaluateJavascript(
+                        """
+                        (function() {
+                            var meta = document.querySelector('meta[name=viewport]');
+                            if (!meta) return;
+                            var content = meta.getAttribute('content');
+                            if (!content) return;
+                            var updated = content
+                                .replace(/,\\s*maximum-scale=[^,]*/gi, '')
+                                .replace(/,\\s*user-scalable=no/gi, '');
+                            if (updated !== content) meta.setAttribute('content', updated.trim());
+                        })();
+                        """.trimIndent(),
+                        null
+                    )
+                }
             }
             webChromeClient = WebChromeClient()
 
