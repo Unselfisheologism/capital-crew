@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
+    defaults:
+      run:
+        working-directory: capital-crew-android
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -33,7 +37,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', 'gradle/wrapper/gradle-wrapper.properties') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('capital-crew-android/**/*.gradle*', 'capital-crew-android/gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
@@ -55,10 +59,6 @@ jobs:
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
 
-      # Play Store upload secrets are provided via GitHub Actions settings:
-      # - GOOGLE_PLAY_SERVICE_ACCOUNT_JSON (JSON string for a service account with
-      #   the Google Play Android Developer role / access to upload tracks)
-
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
 
@@ -66,7 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-${{ github.sha }}
-          path: app/build/outputs/apk/release/*.apk
+          path: capital-crew-android/app/build/outputs/apk/release/*.apk
           retention-days: 14
 
       - name: Build Release AAB
@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-aab-${{ github.sha }}
-          path: app/build/outputs/bundle/release/*.aab
+          path: capital-crew-android/app/build/outputs/bundle/release/*.aab
           retention-days: 14
 
       - name: Cleanup Secrets
