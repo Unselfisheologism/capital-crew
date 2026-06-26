@@ -272,9 +272,184 @@
 .cc-srv-actions-row > * { flex: 1; }
 
 body.is-portrait .cc-srv-root { padding-bottom: 24px; }
+
+/* ─── Mobile: general touch adjustments ─────────────────────────── */
 @media (max-width: 640px) {
   .cc-srv-card { flex-direction: column; align-items: stretch; }
   .cc-srv-card-actions { justify-content: stretch; }
   .cc-srv-radio-group { flex-direction: column; }
   .cc-srv-row { flex-direction: column; }
+}
+
+/* ─── Mobile landscape — the primary phone layout ─────────────────
+ *   Viewport is ~350-480px tall × 700-900px wide.
+ *   Goals: keep header compact, make body scrollable, big touch targets,
+ *   respect safe-area insets (notch, home indicator).
+ */
+
+/* Safe-area padding on the root overlay */
+.cc-srv-root {
+  padding-top:    max(env(safe-area-inset-top,    0px), 0px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+  padding-left:   max(env(safe-area-inset-left,   0px), 0px);
+  padding-right:  max(env(safe-area-inset-right,  0px), 0px);
+}
+
+/* Short landscape viewports */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Compact header */
+  .cc-srv-header {
+    padding: 10px 16px 8px;
+  }
+  .cc-srv-title {
+    font-size: 18px;
+    letter-spacing: 2px;
+  }
+  .cc-srv-subtitle {
+    font-size: 10px;
+    margin-top: 2px;
+  }
+  .cc-srv-tabs {
+    margin-top: 6px;
+    gap: 4px;
+  }
+  .cc-srv-tab {
+    padding: 7px 6px;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  /* Compact body */
+  .cc-srv-body {
+    padding: 10px 14px 16px;
+  }
+
+  /* Cards — tighter */
+  .cc-srv-card {
+    padding: 10px 14px;
+    margin-bottom: 8px;
+  }
+  .cc-srv-card-name {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .cc-srv-card-meta {
+    font-size: 10px;
+  }
+
+  /* Buttons — larger touch targets, compact padding */
+  .cc-srv-btn {
+    padding: 8px 14px;
+    font-size: 11px;
+    min-height: 36px;
+  }
+
+  /* Badges smaller */
+  .cc-srv-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+
+  /* Form fields */
+  .cc-srv-field {
+    margin-bottom: 8px;
+    gap: 4px;
+  }
+  .cc-srv-field > label {
+    font-size: 10px;
+  }
+  .cc-srv-input {
+    padding: 7px 10px;
+    font-size: 13px;
+    min-height: 32px;
+  }
+  .cc-srv-radio {
+    padding: 7px 10px;
+    font-size: 11px;
+    min-width: 0;
+  }
+  .cc-srv-radio-group {
+    gap: 6px;
+  }
+
+  /* Actions row */
+  .cc-srv-actions-row {
+    margin-top: 10px;
+    gap: 6px;
+  }
+
+  /* Error / success */
+  .cc-srv-error, .cc-srv-success {
+    padding: 7px 10px;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+
+  /* Empty state */
+  .cc-srv-empty {
+    padding: 18px 12px;
+    font-size: 12px;
+  }
+
+  /* Admin tab two-column row */
+  .cc-srv-row {
+    gap: 8px;
+  }
+
+  /* Invite code + password row — horizontal inputs */
+  .cc-srv-row > div {
+    min-width: 0;
+  }
+}
+
+/* Very short viewports (small phones in landscape) */
+@media (max-height: 380px) and (orientation: landscape) {
+  .cc-srv-header {
+    padding: 6px 12px 4px;
+  }
+  .cc-srv-title {
+    font-size: 15px;
+    letter-spacing: 1.5px;
+  }
+  .cc-srv-subtitle {
+    display: none; /* hide subtitle to save space */
+  }
+  .cc-srv-tabs {
+    margin-top: 4px;
+  }
+  .cc-srv-tab {
+    padding: 5px 4px;
+    font-size: 9px;
+  }
+  .cc-srv-body {
+    padding: 6px 10px 10px;
+  }
+  .cc-srv-card {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+  .cc-srv-btn {
+    padding: 6px 10px;
+    font-size: 10px;
+    min-height: 32px;
+  }
+  .cc-srv-field {
+    margin-bottom: 5px;
+  }
+  .cc-srv-input {
+    padding: 5px 8px;
+    font-size: 12px;
+    min-height: 28px;
+  }
+  .cc-srv-radio {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+}
+
+/* Tall phones (portrait but landscape-capable) — use more width */
+@media (min-height: 500px) and (orientation: landscape) {
+  .cc-srv-body {
+    max-width: 960px;
+  }
 }
