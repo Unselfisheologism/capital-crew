@@ -80,14 +80,14 @@ function updateOrientationLockEarly(): void {
 
 export function isMobileDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
-  // Coarse pointer OR small screen — both count as mobile.
+  // Require actual touch support — not just a small window.
+  const hasTouch = navigator.maxTouchPoints > 0;
   const hasCoarse = typeof window !== 'undefined' && window.matchMedia
     ? window.matchMedia('(pointer: coarse)').matches
     : false;
-  const isSmall = typeof window !== 'undefined'
-    ? Math.min(window.innerWidth, window.innerHeight) < 900
-    : false;
-  return hasCoarse || isSmall;
+  // A real mobile device has touch AND coarse pointer (no mouse cursor).
+  // A desktop with a touchscreen but a mouse will have pointer: fine.
+  return hasTouch && hasCoarse;
 }
 
 export class MobileControlsOverlay {
