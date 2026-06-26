@@ -1,117 +1,119 @@
 package com.capitalcrew
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
-import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
-import android.view.WindowInsetsController
-import android.webkit.WebChromeClient
+import android.view.WindowManager
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
+@SuppressLint("SetJavaScriptEnabled")
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
 
-    @SuppressLint("SetJavaScriptEnabled")
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        hideSystemUI()
-
-        webView = WebView(this).apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.databaseEnabled = true
-            settings.cacheMode = WebSettings.LOAD_DEFAULT
-            settings.mediaPlaybackRequiresUserGesture = false
-            settings.allowFileAccess = true
-            settings.allowContentAccess = true
-            settings.loadWithOverviewMode = true
-            settings.useWideViewPort = true
-            settings.setSupportZoom(true)
-            settings.builtInZoomControls = true
-            settings.displayZoomControls = false
-            setBackgroundColor(android.graphics.Color.WHITE)
-
-            webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(
-                    view: WebView,
-                    request: WebResourceRequest
-                ): Boolean {
-                    return false // load everything in-app
-                }
-
-                override fun onPageFinished(view: WebView, url: String?) {
-                    super.onPageFinished(view, url)
-                    view.evaluateJavascript(
-                        """
-                        (function() {
-                            var meta = document.querySelector('meta[name=viewport]');
-                            if (!meta) return;
-                            var content = meta.getAttribute('content');
-                            if (!content) return;
-                            var updated = content
-                                .replace(/,\\s*maximum-scale=[^,]*/gi, '')
-                                .replace(/,\\s*user-scalable=no/gi, '');
-                            if (updated !== content) meta.setAttribute('content', updated.trim());
-                        })();
-                        """.trimIndent(),
-                        null
-                    )
-                }
-            }
-            webChromeClient = WebChromeClient()
-
-            // Restore state if available (rotation persistence)
-            if (savedInstanceState != null) {
-                restoreState(savedInstanceState)
-            } else {
-                loadUrl("https://capital-crew.pages.dev")
-            }
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS,
+            WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS
+        )
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.getInsetsController(window.decorView)?.let { controller ->
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
+        webView = WebView(this)
         setContentView(webView)
-    }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        webView.saveState(outState)
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
-            webView.goBack()
-            return true
+        val settings: WebSettings = webView.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        settings.setSupportZoom(false)
+        settings.builtInZoomControls = false
+        settings.displayZoomControls = false
+        settings.loadWithOverviewMode = true
+        settings.useWideViewPort = true
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        settings.mediaPlaybackRequiresUserGesture = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            settings.isWebViewLightModeEnabled = true
         }
-        return super.onKeyDown(keyCode, event)
+        webView.setInitialScale(1)
+        webView.setBackgroundColor(0xFF080818.toInt())
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+            }
+
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean = false
+        }
+
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER)
+
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { v, insets ->
+            val sys = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(sys.left, sys.top, sys.right, sys.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+
+        webView.loadUrl("https://capital-crew.pages.dev")
     }
 
     override fun onResume() {
         super.onResume()
-        hideSystemUI()
+        webView.onResume()
+        webView.resumeTimers()
     }
 
-    @SuppressLint("InlinedApi")
-    private fun hideSystemUI() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars())
-            controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
+    override fun onPause() {
+        super.onPause()
+        webView.onPause()
+        webView.pauseTimers()
+    }
 
-        window.insetsController?.let { controller ->
-            controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-            controller.systemBarsBehavior =
-                android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    override fun onDestroy() {
+        super.onDestroy()
+        webView.destroy()
+    }
+
+    override fun onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
         }
     }
 }
