@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import './auth/AuthUI.css';
 import './auth/RoleUI.css';
+import './servers/ServerUI.css';
 import './ui/MobileControls.css';
 import { ensureAuth, logoutAndReauth } from './auth/AuthUI';
 import { showRolePicker, PRACTICE_MODE_ID } from './auth/RoleUI';
+import { showServerLobby, type ServerLobbyResult } from './servers/ServerUI';
 import {
   setupOrientationLockEarly,
 } from './ui/MobileControls';
@@ -23,12 +25,22 @@ async function bootstrap() {
     __capcrewUser: unknown;
     __capcrewRole: string;
     __capcrewGame?: Phaser.Game;
+    __capcrewServer?: unknown;
   };
   win.__capcrewUser = user;
 
-  // Sub-role picker (always shown post-auth; cached role applies when revisiting)
-  const role = await showRolePicker();
-  win.__capcrewRole = role === PRACTICE_MODE_ID ? '__PRACTICE__' : role;
+  // ── Server Lobby ──
+  const lobbyResult: ServerLobbyResult = await showServerLobby(user);
+
+  if (lobbyResult.mode === 'server' && lobbyResult.server) {
+    // Server mode — store server context, skip role picker
+    win.__capcrewServer = lobbyResult.server;
+    win.__capcrewRole = '__PRACTICE__'; // server mode uses multiplayer logic
+  } else {
+    // Solo mode — show role picker as before
+    const role = await showRolePicker();
+    win.__capcrewRole = role === PRACTICE_MODE_ID ? '__PRACTICE__' : role;
+  }
 
   // ── Viewport config ──
   // Always landscape (1024×768), even on phones — Phaser Scale RESIZE fits it

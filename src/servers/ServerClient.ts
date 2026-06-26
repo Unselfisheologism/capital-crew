@@ -194,6 +194,8 @@ export async function updateServerSettings(opts: {
     tick_interval_ms: number;
     allowlist: string[];
     status: 'lobby' | 'playing' | 'finished';
+    has_password: boolean;
+    password_hash: string | null;
   }>;
 }): Promise<EdgeResult<{ server: ServerRecord }>> {
   return call<{ server: ServerRecord }>(
