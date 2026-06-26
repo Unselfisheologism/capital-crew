@@ -24,6 +24,8 @@ import {
   type Lifetime,
 } from './ServerClient';
 import { hashPassword } from '../auth/AuthClient';
+import { getSupabase } from '../supabaseClient';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /* ───────────────────── types ───────────────────── */
 
@@ -37,6 +39,7 @@ interface LobbyState {
   currentServer: ServerRecord | null;
   members: MemberRecord[];
   pollTimer: ReturnType<typeof setInterval> | null;
+  presenceChannel: RealtimeChannel | null;
 }
 
 /* ───────────────────── export ───────────────────── */
@@ -57,10 +60,16 @@ export async function showServerLobby(
       currentServer: null,
       members: [],
       pollTimer: null,
+      presenceChannel: null,
     };
 
     function destroy(): void {
       if (state.pollTimer) clearInterval(state.pollTimer);
+      if (state.presenceChannel) {
+        void state.presenceChannel.untrack();
+        void getSupabase().removeChannel(state.presenceChannel);
+        state.presenceChannel = null;
+      }
       overlay.remove();
     }
 
@@ -469,16 +478,58 @@ async function renderLobby(
   });
 
   if (state.pollTimer) clearInterval(state.pollTimer);
-  state.pollTimer = setInterval(async () => {
-    await refreshMembers(state);
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  // ── SUPABASE REALTIME — join presence channel for live member updates ──
+  const srvId = state.currentServer?.id;
+  if (!srvId) {
+    // Defensive — should never happen since we render lobby only when joined
+    return;
+  }
+
+  if (state.presenceChannel) {
+    void getSupabase().removeChannel(state.presenceChannel);
+    state.presenceChannel = null;
+  }
+  const channel = getSupabase().channel(`server:${srvId}`, {
+    config: { presence: { key: state.user.id } },
+  });
+  state.presenceChannel = channel;
+
+  const onPresenceRefresh = () => {
     if (root.querySelector('.cc-srv-tab-active')?.getAttribute('data-tab') === 'lobby') {
       renderLobbyTab(body, state, resolve, destroy);
     }
-  }, 3000);
+  };
 
+  channel
+    .on('presence', { event: 'sync' }, onPresenceRefresh)
+    .on('presence', { event: 'join' }, onPresenceRefresh)
+    .on('presence', { event: 'leave' }, onPresenceRefresh);
+
+  void channel.subscribe(async (status) => {
+    if (status === 'SUBSCRIBED') {
+      await channel.track({
+        userId: state.user.id,
+        username: state.user.username,
+        online_at: Date.now(),
+      });
+      // Best-effort initial fetch (in case presence is slow)
+      await refreshMembers(state);
+      onPresenceRefresh();
+    }
+  });
+
+  // Members row changes (Postgres changes) — if backend writes
+  // server_members rows on join/leave, that triggers instant updates
+  getSupabase()
+    .channel(`server-members:${srvId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'server_members' }, async () => {
+      await refreshMembers(state);
+      onPresenceRefresh();
+    })
+    .subscribe();
   renderLobbyTab(body, state, resolve, destroy);
 }
-
 async function refreshMembers(state: LobbyState): Promise<void> {
   if (!state.currentServer) return;
   const res = await listMembers({ user: state.user, server_id: state.currentServer.id });
@@ -522,6 +573,7 @@ function renderLobbyTab(
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div style="font-weight:800;font-size:14px;letter-spacing:1px;color:#aaa">PLAYERS</div>
         <div style="font-size:12px;color:#666">Auto-refreshing…</div>
+        <div style="font-size:12px;color:#00cc88">● Live</div>
       </div>
       ${membersHtml}
     </div>

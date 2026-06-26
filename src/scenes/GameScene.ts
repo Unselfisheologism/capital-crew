@@ -65,6 +65,15 @@ import {
   type DominionState,
 } from '../systems/Dominion';
 
+import {
+  RealtimeSync,
+  type PositionPayload,
+  type GameEventPayload,
+  type TickSyncPayload,
+  type PresenceMeta,
+} from '../systems/RealtimeSync';
+import { generateCapsuleTexture } from '../entities/Player';
+
 const INTERACT_RANGE = 55;
 const INTERACT_FALLBACK = 80;
 const CAMERA_LERP = 0.08;
@@ -161,6 +170,17 @@ export class GameScene extends Phaser.Scene {
   private static readonly MAX_ZOOM = 1.75;
   private menuOpen: boolean = false;
   private pauseOverlay?: Phaser.GameObjects.Container;
+
+  // MULTIPLAYER — Supabase Realtime
+  private realtime: RealtimeSync | null = null;
+  private multiplayerMode: boolean = false;
+  private serverId: string = '';
+  private remotePlayers: Map<string, {
+    sprite: Phaser.Physics.Arcade.Sprite;
+    label: Phaser.GameObjects.Text;
+    state: PlayerState;
+    lastUpdate: number;
+  }> = new Map();
 
   // SAB key (T) press detector (mirrors E/H pattern)
   private tPressed = false;
@@ -301,6 +321,8 @@ export class GameScene extends Phaser.Scene {
     // ── PLAYER SUB-ROLE — load BEFORE HUD so hint text reflects correct state ──
     const win = window as unknown as {
       __capcrewRole?: string;
+      __capcrewServer?: { id: string; host_user_id: string; name: string };
+      __capcrewUser?: { id: string; username: string };
     };
     const chosenId = win.__capcrewRole ?? 'trader';
     if (chosenId === '__PRACTICE__') {
@@ -314,6 +336,35 @@ export class GameScene extends Phaser.Scene {
           : Infinity;
     }
     this.roleCooldownUntilMs = 0;
+
+    // ── MULTIPLAYER — detect server mode and join realtime channel ──
+    const serverCtx = win.__capcrewServer;
+    const userCtx = win.__capcrewUser;
+    if (serverCtx && userCtx) {
+      this.multiplayerMode = true;
+      this.serverId = serverCtx.id;
+      this.practiceMode = false; // server mode overrides practice
+      // Initialize AI (server mode still has AI opponents)
+      for (const p of AI_PERSONALITIES) {
+        const state = new PlayerState(p.id, p.name, p.color);
+        const ai = new AIPlayer(this, p, state, (zoneId: string) => {
+          this.zoneVisitCount[zoneId] = (this.zoneVisitCount[zoneId] ?? 0) + 1;
+        });
+        this.aiPlayers.push(ai);
+      }
+      this.scheduleNextEmergency();
+
+      // Join Supabase Realtime channel
+      this.realtime = new RealtimeSync();
+      this.setupRealtimeListeners();
+      void this.realtime.join({
+        serverId: serverCtx.id,
+        userId: userCtx.id,
+        username: userCtx.username,
+        colorIndex: 0,
+        isHost: serverCtx.host_user_id === userCtx.id,
+      });
+    }
 
     // ── HUD ──
     this.buildHUD();
@@ -455,6 +506,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.player.update(humanPlayer.speedMultiplier);
+
+    // ── MULTIPLAYER — broadcast position to other clients ──
+    if (this.multiplayerMode && this.realtime) {
+      this.realtime.sendPosition(this.player.sprite.x, this.player.sprite.y);
+    }
 
     // Update AI opponents (dt = 16ms assuming ~60fps)
     const dt = 16;
@@ -608,6 +664,21 @@ export class GameScene extends Phaser.Scene {
     }
     if (allMsgs.length > 0) {
       this.showNotification('📊 Economy', allMsgs.join('\n'));
+    }
+
+    // ── MULTIPLAYER — broadcast tick result to other clients ──
+    if (this.multiplayerMode && this.realtime) {
+      this.realtime.sendTickSync({
+        cash: humanPlayer.cash,
+        debt: humanPlayer.debt,
+        netWorth: humanPlayer.netWorth,
+        propertyIds: Array.from(humanPlayer.ownedPropertyIds),
+        skillIds: Array.from(humanPlayer.learnedSkills),
+        tickCount: humanPlayer.tickCount,
+        alive: true,
+        bankrupt: false,
+        won: false,
+      });
     }
   }
 
@@ -2730,6 +2801,181 @@ export class GameScene extends Phaser.Scene {
   // CLEANUP
   // ──────────────────────────────────────────────────────────────
 
+  // ──────────────────────────────────────────────────────────────
+  // MULTIPLAYER — Realtime event handlers
+  // ──────────────────────────────────────────────────────────────
+
+  private setupRealtimeListeners(): void {
+    if (!this.realtime) return;
+    const rt = this.realtime;
+
+    // Remote player moved
+    rt.events.on('position', (p: PositionPayload) => {
+      this.onRemotePosition(p);
+    });
+
+    // Tick sync from another player
+    rt.events.on('tick_sync', (p: TickSyncPayload) => {
+      this.onRemoteTickSync(p);
+    });
+
+    // Game events (emergency, sabotage, trade, chat)
+    rt.events.on('game_event', (ev: GameEventPayload) => {
+      this.onRemoteGameEvent(ev);
+    });
+
+    // Presence: players joined or left
+    rt.events.on('presence_diff', (diff) => {
+      for (const meta of diff.joined) {
+        if (meta.userId !== (window as any).__capcrewUser?.id) {
+          this.ensureRemotePlayer(meta);
+        }
+      }
+      for (const meta of diff.left) {
+        this.removeRemotePlayer(meta.userId);
+      }
+    });
+
+    // Full presence sync
+    rt.events.on('presence_sync', (metas: PresenceMeta[]) => {
+      const myId = (window as any).__capcrewUser?.id;
+      const seen = new Set<string>();
+      for (const meta of metas) {
+        if (meta.userId !== myId) {
+          seen.add(meta.userId);
+          this.ensureRemotePlayer(meta);
+        }
+      }
+      // Remove players no longer present
+      for (const [id] of this.remotePlayers) {
+        if (!seen.has(id)) this.removeRemotePlayer(id);
+      }
+    });
+
+    // Errors
+    rt.events.on('error', (err) => {
+      console.warn('[RealtimeSync] error:', err.message);
+    });
+  }
+
+  /** Ensure a remote player sprite exists; create if needed. */
+  private ensureRemotePlayer(meta: PresenceMeta): void {
+    if (this.remotePlayers.has(meta.userId)) return;
+    const colors = [0x00ffff, 0xff4444, 0xffaa00, 0xaa44ff, 0x44ff44, 0xff44ff, 0xffff44, 0x44ffff];
+    const color = colors[meta.colorIndex % colors.length] ?? 0xffffff;
+    const texKey = generateCapsuleTexture(this, color, meta.username);
+    const sprite = this.physics.add.sprite(MAP_W / 2, MAP_H / 2, texKey);
+    sprite.setDepth(10);
+    sprite.setOrigin(0.5, 0.52);
+    (sprite.body as Phaser.Physics.Arcade.Body).setCircle(10, 4, 8);
+    sprite.setAlpha(0.85);
+    const label = this.add
+      .text(MAP_W / 2, MAP_H / 2 - 26, meta.username, {
+        fontSize: '11px',
+        color: '#ffffff',
+        fontFamily: 'Arial, sans-serif',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(11);
+    const state = new PlayerState(meta.userId, meta.username, color);
+    this.remotePlayers.set(meta.userId, {
+      sprite,
+      label,
+      state,
+      lastUpdate: Date.now(),
+    });
+  }
+
+  /** Remove a remote player's sprite and clean up. */
+  private removeRemotePlayer(userId: string): void {
+    const rp = this.remotePlayers.get(userId);
+    if (!rp) return;
+    rp.sprite.destroy();
+    rp.label.destroy();
+    this.remotePlayers.delete(userId);
+  }
+
+  /** Handle incoming position broadcast from a remote player. */
+  private onRemotePosition(p: PositionPayload): void {
+    const rp = this.remotePlayers.get(p.userId);
+    if (!rp) return;
+    // Simple lerp — remote player glides to new position
+    rp.sprite.x = Phaser.Math.Linear(rp.sprite.x, p.x, 0.3);
+    rp.sprite.y = Phaser.Math.Linear(rp.sprite.y, p.y, 0.3);
+    rp.label.setPosition(rp.sprite.x, rp.sprite.y - 26);
+    rp.lastUpdate = p.ts;
+  }
+
+  /** Handle incoming tick sync from a remote player. */
+  private onRemoteTickSync(p: TickSyncPayload): void {
+    const rp = this.remotePlayers.get(p.userId);
+    if (!rp) return;
+    rp.state.cash = p.cash;
+    rp.state.debt = p.debt;
+    rp.state.tickCount = p.tickCount;
+    rp.state.ownedPropertyIds = new Set(p.propertyIds);
+    rp.state.learnedSkills = new Set(p.skillIds);
+  }
+
+  /** Handle incoming game event from a remote player. */
+  private onRemoteGameEvent(ev: GameEventPayload): void {
+    switch (ev.type) {
+      case 'emergency_start':
+        // A remote player triggered an emergency — apply locally
+        if (!this.currentEmergency) {
+          this.currentEmergency = {
+            type: ev.data.emergencyType as Emergency['type'],
+            zoneId: ev.data.zoneId as string,
+            startMs: ev.ts,
+            durationMs: (ev.data.durationMs as number) ?? 35_000,
+            resolved: false,
+            expired: false,
+            fixedBy: null,
+          };
+        }
+        break;
+      case 'emergency_fixed':
+        if (this.currentEmergency) {
+          this.currentEmergency.resolved = true;
+          this.currentEmergency.fixedBy = ev.data.fixedBy as string;
+          this.showNotification(
+            '✅ FIXED',
+            `Emergency resolved by ${ev.data.fixedBy ?? 'someone'}!`,
+          );
+          this.currentEmergency = null;
+        }
+        break;
+      case 'sabotage_activate':
+        // Sync sabotage from remote
+        {
+          const sabId = ev.data.sabotageId as SabotageId;
+          const zoneId = ev.data.zoneId as string | undefined;
+          const active = buildSabotage(this, sabId, zoneId, ev.ts);
+          if (active) {
+            this.activeSabotages.push(active);
+            const def = SABOTAGES.find((s) => s.id === sabId);
+            if (def) {
+              this.showNotification(
+                `⚡ ${def.icon} ${def.name}`,
+                `${def.desc} (activated by ${ev.data.fromName ?? 'someone'})`,
+              );
+            }
+          }
+        }
+        break;
+      case 'chat':
+        this.showNotification(
+          `💬 ${ev.data.fromName ?? 'Player'}`,
+          (ev.data.message as string) ?? '',
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
   private cleanup(): void {
     if (this.eHandler) {
       document.removeEventListener('keydown', this.eHandler);
@@ -2757,6 +3003,18 @@ export class GameScene extends Phaser.Scene {
     if (this.notifBg) { this.notifBg.destroy(); this.notifBg = null; }
     if (this.notifTitle) { this.notifTitle.destroy(); this.notifTitle = null; }
     if (this.notifMsg) { this.notifMsg.destroy(); this.notifMsg = null; }
+
+    // ── MULTIPLAYER — leave realtime channel ──
+    if (this.realtime) {
+      void this.realtime.leave();
+      this.realtime = null;
+    }
+    // Destroy remote player sprites
+    for (const [id, rp] of this.remotePlayers) {
+      rp.sprite.destroy();
+      rp.label.destroy();
+    }
+    this.remotePlayers.clear();
   }
 
   // ══════════════════════════════════════════════════════════════
