@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
             setBackgroundColor(0xFF080818.toInt())
-            setOverScrollMode(OVER_SCROLL_NEVER)
+            setOverScrollMode(View.OVER_SCROLL_NEVER)
         }
         setContentView(webView)
 
