@@ -14,7 +14,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 
-@SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
+@SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility", "AddJavascriptInterface")
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
@@ -56,12 +56,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            private var htmlPatched = false
+
             override fun shouldInterceptRequest(
-                view: WebView?,
+                view: android.webkit.WebView?,
                 request: WebResourceRequest?
             ): WebResourceResponse? {
                 val url = request?.url?.toString() ?: return null
-                if (request.isForMainFrame && (url.endsWith("/") || url.endsWith("index.html"))) {
+                if ((url.endsWith("/") || url.endsWith("index.html")) && !htmlPatched) {
+                    htmlPatched = true
                     try {
                         val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                         connection.requestMethod = "GET"
@@ -86,12 +89,49 @@ class MainActivity : AppCompatActivity() {
                                 "body { position: fixed; inset: 0; }",
                                 "body { position: fixed; inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }"
                             )
+                            .replace(
+                                "visibility:hidden",
+                                "visibility:visible"
+                            )
+                            .replace(
+                                "display:none!important",
+                                "display:flex!important"
+                            )
                         return WebResourceResponse("text/html", "UTF-8", patched.byteInputStream())
                     } catch (ignored: Exception) {
                         ignored.printStackTrace()
                     }
                 }
                 return null
+            }
+
+            override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                view?.evaluateJavascript(
+                    """
+                    (function() {
+                      var orientLock = document.getElementById('cc-orient-lock');
+                      if (orientLock) {
+                        orientLock.style.display = 'none';
+                        orientLock.remove();
+                      }
+                      document.body.classList.remove('is-portrait');
+                      document.body.classList.add('is-landscape');
+                      try {
+                        screen.orientation.lock('landscape');
+                      } catch(e) {}
+                      Object.defineProperty(window, 'innerWidth', {
+                        get: function() { return Math.max(screen.width, screen.availWidth, 1920); }
+                      });
+                      Object.defineProperty(window, 'innerHeight', {
+                        get: function() { return Math.min(screen.height, screen.availHeight, 1080); }
+                      });
+                      document.getElementById('game-container').style.visibility = 'visible';
+                      document.getElementById('cc-mobile-controls').style.display = 'block';
+                    })()
+                    """.trimIndent(),
+                    null
+                )
             }
         }
 
@@ -116,6 +156,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (webView.canGoBack()) super.onBackPressed() else if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
