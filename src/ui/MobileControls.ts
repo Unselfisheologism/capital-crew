@@ -106,6 +106,7 @@ export class MobileControlsOverlay {
   private joystickKnob!: HTMLDivElement;
   private actionPad!: HTMLDivElement;
   private actionPadData: Array<{ key: string; label: string; color: string; hidden: boolean }> = [];
+  private roleActionsVisible = true;
 
   private joystick: JoystickState = { active: false, dx: 0, dy: 0 };
   private joystickTouchId: number | null = null;
@@ -114,6 +115,16 @@ export class MobileControlsOverlay {
 
   /** Last frame's eHeld state — used to detect rising edge. */
   private prevEHeld = false;
+
+  private syncRoleActionVisibility(): void {
+    const btns = this.rootEl.querySelectorAll('.cc-action-btn');
+    btns.forEach((btn) => {
+      const key = (btn as HTMLElement).dataset.key;
+      if (key === 'v' || key === 'y') {
+        (btn as HTMLElement).classList.toggle('cc-hidden', !this.roleActionsVisible);
+      }
+    });
+  }
 
   /** Constructor sets up the DOM. Pass the document body for append. */
   constructor() {
