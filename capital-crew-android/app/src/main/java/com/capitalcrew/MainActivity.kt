@@ -35,14 +35,14 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.databaseEnabled = true
         settings.cacheMode = WebSettings.LOAD_DEFAULT
-        settings.setSupportZoom(false)
-        settings.builtInZoomControls = false
+        settings.setSupportZoom(true)
+        settings.builtInZoomControls = true
         settings.displayZoomControls = false
-        settings.loadWithOverviewMode = false
+        settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         settings.mediaPlaybackRequiresUserGesture = false
-        webView.setInitialScale(1)
+
         webView.setBackgroundColor(0xFF080818.toInt())
 
         webView.webViewClient = object : WebViewClient() {
@@ -50,6 +50,19 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 request: WebResourceRequest?
             ): Boolean = false
+
+            override fun onPageStarted(
+                view: WebView?,
+                url: String?,
+                favicon: Bitmap?
+            ) {
+                super.onPageStarted(view, url, favicon)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                fitWebViewToScreen()
+            }
 
             override fun onReceivedError(
                 view: WebView?,
@@ -70,6 +83,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.loadUrl("https://capital-crew.pages.dev")
+    }
+
+    private fun fitWebViewToScreen() {
+        val containerWidth = webView.width
+        if (containerWidth > 0) {
+            webView.measure(
+                View.MeasureSpec.makeMeasureSpec(containerWidth, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            val desiredScale = containerWidth.toFloat() / webView.measuredWidth.toFloat()
+            webView.setInitialScale((desiredScale * 100).toInt())
+        }
     }
 
     override fun onResume() {
