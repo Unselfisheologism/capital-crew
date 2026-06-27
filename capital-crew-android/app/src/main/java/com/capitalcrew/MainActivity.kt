@@ -30,7 +30,9 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setOverScrollMode(View.OVER_SCROLL_NEVER)
+            isVerticalScrollBarEnabled = true
+            isHorizontalScrollBarEnabled = true
+            overScrollMode = View.OVER_SCROLL_NEVER
         }
         setContentView(webView)
 
@@ -50,8 +52,8 @@ class MainActivity : AppCompatActivity() {
                 view?.evaluateJavascript(
                     """
                     (function() {
-                      var lock = document.getElementById('cc-orient-lock');
-                      if (lock) lock.remove();
+                      document.documentElement.style.overflowY = 'auto';
+                      document.body.style.overflowY = 'auto';
                     })()
                     """.trimIndent(),
                     null

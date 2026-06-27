@@ -2,7 +2,8 @@
 
 .cc-auth-root {
   position: fixed;
-  inset: 0;
+  inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+        env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   background: radial-gradient(ellipse at top, #1a1a3a 0%, #0a0a1e 60%, #060614 100%);
   z-index: 9999;
   display: flex;
@@ -11,6 +12,7 @@
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: #e8e8f0;
   animation: cc-auth-fade 0.3s ease-out;
+  padding: 16px;
 }
 
 @keyframes cc-auth-fade {

@@ -10,6 +10,7 @@
  *     to safe-area-inset-* instead of hard-coded viewport edges.
  */
 
+/* Portrait lock overlay */
 .cc-orient-lock {
   position: fixed;
   inset: 0;
@@ -121,7 +122,7 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   right:  calc(env(safe-area-inset-right, 0px) + 10px);
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
   pointer-events: auto;
-  touch-action: none;
+  touch-action: manipulation;
   display: grid;
   /* default 4 cols × N rows, set inline by JS based on viewport */
   grid-template-columns: repeat(4, 44px);
