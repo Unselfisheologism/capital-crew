@@ -152,7 +152,7 @@ async function renderBrowseTab(
     return;
   }
 
-  const servers = res.data.servers;
+  const servers = res.data.servers.filter((srv) => !/test-server/i.test(srv.name) && !/test-server/i.test(srv.id));
   if (servers.length === 0) {
     body.innerHTML = `
       <div class="cc-srv-empty">
@@ -176,6 +176,22 @@ async function renderBrowseTab(
     const pwIcon = srv.has_password ? '🔒' : '';
     const isFull = srv.player_count >= srv.max_players;
 
+    let browseDisabled = isFull;
+    let browseLabel = 'JOIN';
+    browseDisabled ||= !state.user;
+    if (!browseDisabled && !srv.is_host) {
+      if (srv.visibility === 'private') {
+        browseDisabled = true;
+        browseLabel = 'Private';
+      } else if (srv.visibility === 'restricted' && !srv.allowlist.includes(state.user.username)) {
+        browseDisabled = true;
+        browseLabel = 'Invite Only';
+      }
+    }
+    const joinBtnHTML = browseDisabled
+      ? `<button class="cc-srv-btn" disabled>${browseLabel}${isFull ? ' · Full' : ''}</button>`
+      : `<button class="cc-srv-btn cc-srv-btn-success" data-join="${srv.id}">${browseLabel || 'JOIN'}</button>`;
+
     card.innerHTML = `
       <div class="cc-srv-card-info">
         <div class="cc-srv-card-name">
@@ -191,9 +207,7 @@ async function renderBrowseTab(
         </div>
       </div>
       <div class="cc-srv-card-actions">
-        ${isFull
-          ? '<button class="cc-srv-btn" disabled>Full</button>'
-          : `<button class="cc-srv-btn cc-srv-btn-success" data-join="${srv.id}">JOIN</button>`}
+        ${joinBtnHTML}
       </div>
     `;
 
@@ -581,6 +595,7 @@ function renderLobbyTab(
     <div class="cc-srv-actions-row">
       <button class="cc-srv-btn cc-srv-btn-danger" id="cc-lobby-leave">🚪 Leave Server</button>
       ${isHost ? '<button class="cc-srv-btn cc-srv-btn-primary" id="cc-lobby-start">🎮 Start Game</button>' : ''}
+      <button class="cc-srv-btn" id="cc-lobby-copy">🔗 Copy Invite</button>
     </div>
   `;
 
@@ -606,6 +621,16 @@ function renderLobbyTab(
     if (state.pollTimer) clearInterval(state.pollTimer);
     destroy();
     resolve({ mode: 'solo' });
+  });
+
+  body.querySelector('#cc-lobby-copy')?.addEventListener('click', async () => {
+    const code = srv.invite_code;
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      prompt('Copy this invite code:', code);
+    }
   });
 
   const startBtn = body.querySelector('#cc-lobby-start');

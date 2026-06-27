@@ -738,21 +738,51 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(301);
 
-    const restartBtn = this.add
-      .text(cx, cy + 150, '[ Press Enter to Restart ]', {
-        fontSize: '16px',
-        color: '#88ff88',
-        fontFamily: 'Arial, sans-serif',
-      })
+    const code = this.multiplayerMode ? (this.serverId || '') : '';
+    const inviteTxt = code ? `Server: ${code}` : '';
+    const inviteTxtObj = this.add.text(cx, cy + 115, inviteTxt, {
+      fontSize: '13px',
+      color: '#ffffff',
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      padding: { x: 10, y: 6 },
+    })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(301);
 
+    const shareTxt = this.add.text(cx, cy + 155, '[ Enter — Share · R — Restart ]', {
+      fontSize: '16px',
+      color: won ? '#88ff88' : '#ff8888',
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      padding: { x: 10, y: 6 },
+    })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(301);
+
+    const shareShare = () => {
+      const shareText = `Capital Crew — ${won ? 'Won' : 'Lost'} (${stats['Net Worth']})`;
+      const shareData: any = { title: 'Capital Crew', text: shareText };
+      if (code) shareData.url = `${window.location.origin}?server=${code}`;
+      if ((navigator as any).canShare?.(shareData)) {
+        void (navigator as any).share(shareData);
+      } else {
+        const fallback = code ? `Join ${code}` : shareText;
+        void (navigator as any).clipboard?.writeText?.(fallback).catch(() => {});
+      }
+    };
+
     const restartHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'r' || e.key === 'R') {
         document.removeEventListener('keydown', restartHandler);
         humanPlayer.reset();
         this.scene.restart();
+      }
+      if (e.key === 'Enter') {
+        document.removeEventListener('keydown', restartHandler);
+        shareShare();
       }
     };
     document.addEventListener('keydown', restartHandler);
