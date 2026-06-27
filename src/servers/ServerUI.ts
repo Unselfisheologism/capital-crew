@@ -152,7 +152,7 @@ async function renderBrowseTab(
     return;
   }
 
-  const servers = res.data.servers.filter((srv) => !/test-server/i.test(srv.name) && !/test-server/i.test(srv.id));
+  const servers = res.data.servers;
   if (servers.length === 0) {
     body.innerHTML = `
       <div class="cc-srv-empty">
