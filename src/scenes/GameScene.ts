@@ -220,7 +220,9 @@ export class GameScene extends Phaser.Scene {
     this.drawMap();
     this.drawGrid();
 
-    this.player = new Player(this, MAP_W / 2, MAP_H / 2, 0x00ffff, 'You');
+    const humanName =
+      ((window as any).__capcrewUser as { username?: string } | undefined)?.username || 'You';
+    this.player = new Player(this, MAP_W / 2, MAP_H / 2, 0x00ffff, humanName);
 
     const keys = this.input.keyboard!.addKeys({
       W: Phaser.Input.Keyboard.KeyCodes.W,
