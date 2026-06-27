@@ -9,6 +9,7 @@ export class InteractionPrompt {
   private bg: Phaser.GameObjects.Graphics;
   private text: Phaser.GameObjects.Text;
   private container: Phaser.GameObjects.Container;
+  private pulseTween: Phaser.Tweens.Tween | null = null;
 
   constructor(scene: Phaser.Scene) {
     // Background capsule (Among Us-style rounded pill)
@@ -68,6 +69,7 @@ export class InteractionPrompt {
 
     this.container.setPosition(x, y);
     this.container.setVisible(true);
+    this.startPulse();
   }
 
   /** Update position to follow a screen coordinate */
@@ -77,11 +79,34 @@ export class InteractionPrompt {
 
   /** Hide the prompt */
   hide(): void {
+    this.stopPulse();
     this.container.setVisible(false);
   }
 
   /** Clean up */
   destroy(): void {
+    this.stopPulse();
     this.container.destroy();
+  }
+
+  /** Gentle Among Us-style pulse while visible */
+  private startPulse(): void {
+    this.stopPulse();
+    this.pulseTween = (this.container.scene as Phaser.Scene).tweens.add({
+      targets: this.container,
+      scaleX: 1.08,
+      scaleY: 1.08,
+      duration: 620,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private stopPulse(): void {
+    if (!this.pulseTween) return;
+    this.pulseTween.stop();
+    this.pulseTween = null;
+    this.container.setScale(1, 1);
   }
 }

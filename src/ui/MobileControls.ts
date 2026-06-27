@@ -308,6 +308,7 @@ export class MobileControlsOverlay {
       const target = te.target as HTMLElement;
       const key = target.dataset.key;
       if (key) this.pressKey(key);
+      this.vibrate(18);
     }, { passive: false });
     this.actionPad.addEventListener('touchend', (e: Event) => {
       const te = e as TouchEvent;
@@ -433,6 +434,12 @@ export class MobileControlsOverlay {
     this.state.down = down;
     this.state.left = left;
     this.state.right = right;
+  }
+
+  private vibrate(ms: number): void {
+    if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+      try { (navigator as any).vibrate(ms); } catch { /* noop */ }
+    }
   }
 
   /** Map an on-screen button to a key. */

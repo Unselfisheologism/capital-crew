@@ -32,6 +32,8 @@ export class PlayerState {
   learnedSkills: Set<string> = new Set();
   propertyLevels: Record<string, number> = {};
   tickCount: number = 0;
+  streak: number = 0;
+  streakType: 'purchase' | 'fix' | null = null;
 
   constructor(id: string, name: string, color: number) {
     this.id = id;

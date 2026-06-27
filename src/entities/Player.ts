@@ -402,6 +402,7 @@ export class Player {
   private scene: Phaser.Scene;
   /** Optional mobile joystick vector. When non-null, overrides key input. */
   public joystickVector: { x: number; y: number } | null = null;
+  private moveTweenActive: boolean = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -482,18 +483,53 @@ export class Player {
         (keys.W.isDown || keys.UP.isDown ? 1 : 0);
     }
 
-    if (vx !== 0 || vy !== 0) {
-      const len = Math.hypot(vx, vy);
-      this.body.setVelocity(
-        (vx / len) * this.baseSpeed * speedMultiplier,
-        (vy / len) * this.baseSpeed * speedMultiplier,
-      );
+    const moving = vx !== 0 || vy !== 0;
+    const len = Math.hypot(vx, vy);
+
+    if (moving && len > 0) {
+      const speed = this.baseSpeed * speedMultiplier;
+      this.body.setVelocity((vx / len) * speed, (vy / len) * speed);
+
+      // Head-bob + squash on move start
+      if (!this.moveTweenActive) {
+        this.moveTweenActive = true;
+        this.scene.tweens.killTweensOf(this.sprite);
+        this.scene.tweens.add({
+          targets: this.sprite,
+          scaleX: 1.08,
+          scaleY: 0.93,
+          duration: 90,
+          yoyo: true,
+          repeat: 2,
+          ease: 'Sine.easeInOut',
+        });
+      }
     } else {
       this.body.setVelocity(0, 0);
+      if (this.moveTweenActive) {
+        this.moveTweenActive = false;
+        this.scene.tweens.killTweensOf(this.sprite);
+        this.sprite.setScale(1, 1);
+      }
     }
 
     // Update label position to follow sprite
     this.label.setPosition(this.sprite.x, this.sprite.y - 26);
+  }
+
+  /** Trigger a quick feedback tween (e.g. on interact / purchase). */
+  public feedbackTween(): void {
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.sprite.setScale(1, 1);
+    this.scene.tweens.add({
+      targets: this.sprite,
+      scaleX: 1.18,
+      scaleY: 0.84,
+      duration: 70,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+      onComplete: () => this.sprite.setScale(1, 1),
+    });
   }
 
   /** Clean up game objects */
