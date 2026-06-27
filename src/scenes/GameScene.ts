@@ -1613,13 +1613,14 @@ export class GameScene extends Phaser.Scene {
     const cx = this.cameras.main.width / 2;
     const cy = 30;
     this.riskMeterGfx = this.add.graphics().setScrollFactor(0).setDepth(120);
+    const baseColor = '#ff8866';
     this.riskMeterText = this.add
       .text(cx, cy, 'RISK: —', {
         fontSize: '13px',
-        color: '#ff8866',
+        color: baseColor,
         fontFamily: 'Arial, sans-serif',
         fontStyle: 'bold',
-        stroke: '#000000',
+        stroke: '#000',
         strokeThickness: 2,
       })
       .setOrigin(0.5).setScrollFactor(0).setDepth(121);

@@ -135,8 +135,8 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
 .cc-action-btn {
   width: 100%;
   height: 100%;
-  border-radius: 11px;
-  border: 1.5px solid rgba(255, 255, 255, 0.58);
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
   color: #fff;
   font-size: 15px;
   font-weight: 800;
@@ -152,6 +152,18 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   padding: 0;
   -webkit-appearance: none;
   appearance: none;
+  background-clip: padding-box;
+}
+.cc-action-btn.is-primary {
+  font-size: 18px;
+  border-color: rgba(255, 255, 255, 0.9);
+  border-width: 2px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), inset 0 0 12px rgba(255, 215, 0, 0.35);
+}
+.cc-action-btn.cc-hidden {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 .cc-action-btn:active {
   transform: scale(0.92);

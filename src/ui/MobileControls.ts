@@ -105,6 +105,7 @@ export class MobileControlsOverlay {
   private joystickBase!: HTMLDivElement;
   private joystickKnob!: HTMLDivElement;
   private actionPad!: HTMLDivElement;
+  private actionPadData: Array<{ key: string; label: string; color: string; hidden: boolean }> = [];
 
   private joystick: JoystickState = { active: false, dx: 0, dy: 0 };
   private joystickTouchId: number | null = null;
@@ -190,30 +191,30 @@ export class MobileControlsOverlay {
     this.joystickKnob = knob;
     this.rootEl.appendChild(joystickWrap);
 
-    // ── Action strip — right-edge vertical grid (thumb-reachable in landscape) ──
-    // 10 buttons → 4 cols × 3 rows at 44px each fits comfortably on phones
-    // held sideways. JS may switch to 3 cols on very narrow-aspect devices.
+    // ── Action strip — slimmed layout for landscape thumbs
+    // Primary action is always E. Contextual actions are V/Y hidden by
+    // default and shown only when role-gated. Zoom buttons are reduced to
+    // a single toggle so the right side doesn't crowd the canvas.
     const pad = document.createElement('div');
     pad.className = 'cc-action-strip';
-    const layout: Array<{ key: string; label: string; color: string }> = [
-      // ROW 0 — primary interaction / utility
-      { key: '?',        label: '?',   color: 'rgba(80,80,80,0.7)' },
-      { key: 'h',        label: 'H',   color: 'rgba(140,180,140,0.7)' },
-      { key: 't',        label: 'T',   color: 'rgba(180,80,80,0.7)' },
-      { key: 'e',        label: 'E',   color: 'rgba(255,215,0,0.95)' },
-      // ROW 1 — role-gated + zoom + menu
-      { key: 'v',        label: 'V',   color: 'rgba(255,165,0,0.7)' },
-      { key: 'y',        label: 'Y',   color: 'rgba(80,180,255,0.7)' },
-      { key: 'g',        label: 'G',   color: 'rgba(180,140,255,0.7)' },
-      { key: 'm',        label: 'M',   color: 'rgba(255,140,255,0.8)' },
-      // ROW 2 — zoom controls
-      { key: 'zoom_out', label: '−',   color: 'rgba(60,90,140,0.85)' },
-      { key: 'zoom_in',  label: '＋',  color: 'rgba(60,90,140,0.85)' },
+    const padData: Array<{ key: string; label: string; color: string; hidden: boolean }> = [
+      { key: '?',        label: '?',  color: 'rgba(80,80,80,0.7)', hidden: false },
+      { key: 'e',        label: 'E',  color: 'rgba(255,215,0,0.95)', hidden: false },
+      { key: 'h',        label: 'H',  color: 'rgba(140,180,140,0.7)', hidden: false },
+      { key: 't',        label: 'T',  color: 'rgba(180,80,80,0.7)', hidden: false },
+      { key: 'g',        label: 'G',  color: 'rgba(180,140,255,0.8)', hidden: false },
+      { key: 'v',        label: 'V',  color: 'rgba(255,165,0,0.7)', hidden: true },
+      { key: 'y',        label: 'Y',  color: 'rgba(80,180,255,0.7)', hidden: true },
+      { key: 'zoom',     label: '◎',  color: 'rgba(60,90,140,0.85)', hidden: false },
+      { key: 'm',        label: 'M',  color: 'rgba(255,140,255,0.8)', hidden: false },
     ];
-    for (const b of layout) {
+    this.actionPadData = padData;
+    for (const b of padData) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'cc-action-btn';
+      if (b.hidden) btn.classList.add('cc-hidden');
+      if (b.key === 'e') btn.classList.add('is-primary');
       btn.style.background = b.color;
       btn.textContent = b.label;
       btn.dataset.key = b.key;
@@ -449,29 +450,30 @@ export class MobileControlsOverlay {
       return;
     }
     if (buttonKey === 'm') {
-      // M: dispatch a synthetic 'm' keydown — GameScene handles pause/menu logic.
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true }));
       document.dispatchEvent(new KeyboardEvent('keyup', { key: 'm', bubbles: true }));
       return;
     }
-    if (buttonKey === 'zoom_in' || buttonKey === 'zoom_out') {
-      const dir = buttonKey === 'zoom_in' ? +1 : -1;
+    if (buttonKey === 'zoom') {
       window.dispatchEvent(
-        new CustomEvent('cc:zoom-request', { detail: { delta: dir * 0.15 } }),
+        new CustomEvent('cc:zoom-toggle', { detail: { delta: 0.15 } }),
       );
       return;
     }
-    // Mark a synthetic key event in DOM so Phaser keydown listeners see it.
+    if (buttonKey === 'v' || buttonKey === 'y') {
+      const visible = this.isActionVisible(buttonKey);
+      if (!visible) return;
+    }
     const keyChar =
       buttonKey === 'e' ? 'E' :
       buttonKey === 'h' ? 'H' :
       buttonKey === 't' ? 'T' :
       buttonKey === 'v' ? 'V' :
       buttonKey === 'y' ? 'Y' :
-      buttonKey === 'g' ? 'G' : buttonKey.toUpperCase();
+      buttonKey === 'g' ? 'G' :
+      buttonKey.toUpperCase();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: keyChar, bubbles: true }));
     if (buttonKey === 'e') {
-      // Hold-E: state.eHeld stays true until releaseKey() is called by touchend.
       this.state.eHeld = true;
     }
   }
@@ -481,6 +483,28 @@ export class MobileControlsOverlay {
       document.dispatchEvent(new KeyboardEvent('keyup', { key: 'E', bubbles: true }));
       this.state.eHeld = false;
     }
+  }
+
+  public setRoleActionsVisible(visible: boolean): void {
+    this.actionPadData.forEach((b) => {
+      if (b.key === 'v' || b.key === 'y') b.hidden = !visible;
+    });
+    this.syncPadVisibility();
+  }
+
+  private isActionVisible(key: string): boolean {
+    const found = this.actionPadData.find((b) => b.key === key);
+    return found ? !found.hidden : true;
+  }
+
+  private syncPadVisibility(): void {
+    const btns = this.actionPad.querySelectorAll('.cc-action-btn');
+    btns.forEach((btn, idx) => {
+      const key = (btn as HTMLElement).dataset.key || '';
+      const b = this.actionPadData.find((x) => x.key === key);
+      if (b && b.hidden) btn.classList.add('cc-hidden');
+      else btn.classList.remove('cc-hidden');
+    });
   }
 
   private showHelp(): void {

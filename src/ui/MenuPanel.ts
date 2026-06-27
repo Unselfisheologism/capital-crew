@@ -30,6 +30,7 @@ export class MenuPanel {
   private panelBg: Phaser.GameObjects.Graphics;
   private titleText: Phaser.GameObjects.Text;
   private optionTexts: Phaser.GameObjects.Text[] = [];
+  private optionRects: Phaser.GameObjects.Rectangle[] = [];
 
   private config: MenuConfig | null = null;
   private selectedIndex: number = 0;
@@ -75,58 +76,74 @@ export class MenuPanel {
     this.selectedIndex = 0;
     this.active = true;
 
-    // Draw dim background
     this.dimBg.clear();
     this.dimBg.fillStyle(0x000000, 0.55);
     this.dimBg.fillRect(0, 0, this.scene.cameras.main.width, this.scene.cameras.main.height);
     this.dimBg.setVisible(true);
 
-    // Compute panel dimensions
-    const panelW = 420;
-    const rowH = 36;
+    const panelW = Math.min(420, this.scene.cameras.main.width - 40);
+    const rowH = 44;
     const pad = 20;
     const titleH = 36;
     const optCount = config.options.length;
     const panelH = Math.min(
       500,
-      pad * 2 + titleH + optCount * rowH + 10
+      pad * 2 + titleH + optCount * rowH + 24
     );
     const cx = this.scene.cameras.main.width / 2;
     const cy = this.scene.cameras.main.height / 2;
     const px = cx - panelW / 2;
     const py = cy - panelH / 2;
 
-    // Panel background
     this.panelBg.clear();
     this.panelBg.fillStyle(0x0d1b2a, 0.94);
     this.panelBg.fillRoundedRect(px, py, panelW, panelH, 12);
     this.panelBg.lineStyle(2, 0x1b4965, 0.7);
     this.panelBg.strokeRoundedRect(px, py, panelW, panelH, 12);
 
-    // Top glow accent
     this.panelBg.fillStyle(0x44aaff, 0.06);
     this.panelBg.fillRoundedRect(px + 4, py + 2, panelW - 8, 4, 2);
     this.panelBg.setVisible(true);
 
-    // Title
     this.titleText
       .setText(config.title)
       .setPosition(cx, py + pad)
+      .setFontSize('22px')
+      .setColor('#ffd700')
       .setVisible(true);
 
-    // Option rows
     this.clearOptions();
     for (let i = 0; i < optCount; i++) {
       const opt = config.options[i];
       const oy = py + pad + titleH + 8 + i * rowH;
+      const ry = oy - 6;
+      const rh = rowH - 6;
+      const isActive = i === this.selectedIndex;
+
+      const rect = this.scene.add
+        .rectangle(cx, ry + rh / 2, panelW - 20, rh, 0x1b4965, isActive ? 0.45 : 0.15)
+        .setScrollFactor(0)
+        .setStrokeStyle(1, 0x44aaff, isActive ? 0.6 : 0.2)
+        .setInteractive(new Phaser.Geom.Rectangle(cx, ry, panelW - 20, rh), Phaser.Geom.Rectangle.Contains)
+        .setDepth(202);
+      rect.on('pointerdown', () => {
+        this.selectedIndex = i;
+        this.highlightOption();
+        if (this.config?.options[i]) {
+          this.config.options[i].onSelect();
+        }
+      });
+      this.optionRects.push(rect);
 
       const txt = this.scene.add
-        .text(cx, oy, opt.label, {
-          fontSize: '14px',
-          color: i === 0 ? '#ffff88' : '#cccccc',
+        .text(cx, ry + rh / 2, opt.label, {
+          fontSize: '15px',
+          color: isActive ? '#ffff88' : '#eeeeee',
           fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          align: 'center',
         })
-        .setOrigin(0.5, 0)
+        .setOrigin(0.5, 0.5)
         .setScrollFactor(0)
         .setDepth(203)
         .setVisible(true);
@@ -134,7 +151,20 @@ export class MenuPanel {
       this.optionTexts.push(txt);
     }
 
-    // Keyboard listener
+    // Bottom close bar
+    const closeY = py + panelH - 24;
+    const closeBtn = this.scene.add
+      .text(cx, closeY, 'Tap background to close', {
+        fontSize: '13px',
+        color: '#aac',
+        fontFamily: 'Arial, sans-serif',
+      })
+      .setOrigin(0.5, 0.5)
+      .setScrollFactor(0)
+      .setDepth(203)
+      .setVisible(true);
+    this.optionTexts.push(closeBtn);
+
     this.registerKeys();
   }
 
