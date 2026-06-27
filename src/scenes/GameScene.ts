@@ -1239,28 +1239,41 @@ export class GameScene extends Phaser.Scene {
 
   /** Reposition HUD widgets when the viewport size or orientation changes. */
   private relayoutHUD(): void {
-    if (!this.isPhonePortrait) return;
     const cam = this.cameras.main;
     const w = cam.width;
     const h = cam.height;
-    // In portrait we shift HUD to the LEFT edge so it doesn't collide with
-    // the wider right column that hosts Phaser's tall viewport.
-    // Place labels in a compact column at top-left.
-    if (this.hudTitle) this.hudTitle.setPosition(16, 16);
-    let py = 44;
-    for (const t of this.hudLabelTexts) {
-      t.setPosition(16, py);
-      t.setFontSize('11px');
-      py += 18;
+    const isPhonePortrait = window.innerHeight > window.innerWidth * 1.05;
+    this.isPhonePortrait = isPhonePortrait;
+
+    if (isPhonePortrait) {
+      if (this.hudTitle) this.hudTitle.setPosition(16, 16);
+      let py = 44;
+      for (const t of this.hudLabelTexts) {
+        t.setPosition(16, py);
+        t.setFontSize('11px');
+        py += 18;
+      }
+      if (this.tickTimerText) this.tickTimerText.setPosition(16, py + 4);
+      if (this.hudControlsHint) this.hudControlsHint.setVisible(false);
+      void w;
+      return;
     }
-    if (this.tickTimerText) this.tickTimerText.setPosition(16, py + 4);
-    // In portrait the hint hides entirely — the on-screen keyboard replaces it.
+
+    // Landscape: anchor to top-left inside safe area so iOS notch / Android
+    // status bar never covers HUD text or overlaps the action pad column.
+    const padX = Math.max(16, Math.min(this.safeLeft, 20));
+    const topInset = Math.max(6, this.safeTop);
+    if (this.hudTitle) this.hudTitle.setPosition(padX, topInset + 16);
+    let py = topInset + 16 + 24 + 4;
+    for (const t of this.hudLabelTexts) {
+      t.setPosition(padX, py);
+      t.setFontSize('13px');
+      py += 22;
+    }
+    if (this.tickTimerText) this.tickTimerText.setPosition(padX, py + 4);
     if (this.hudControlsHint) {
       this.hudControlsHint.setVisible(false);
     }
-    // Leaderboard / risk meter / role badge — keep right edge unchanged; Phaser
-    // auto-adapts to viewport.
-    void w;
   }
 
   /**

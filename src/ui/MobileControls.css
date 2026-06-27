@@ -3,9 +3,10 @@
  * Landscape is the supported mobile orientation. The goal here is to keep
  * the touch UI from crowding or clipping the Phaser game canvas:
  *   • Respect iOS / Android safe-area insets (notch, home indicator).
- *   • Joystick bottom-left, action strip vertically stacked right-edge —
- *     matches how phones are held with both thumbs in landscape.
- *   • Compact button size + scales down further on small-height viewports.
+ *   • Joystick bottom-left, action strip vertically stacked right-edge — matches
+ *     how phones are held with both thumbs in landscape.
+ *   • Pre-shrink controls and increase bottom clearance on short landscape phones.
+ *   • Default action strip is wider (5 cols), JS then fits it to the viewport.
  *   • Hide UI chrome (browser address bar / home indicator) by anchoring
  *     to safe-area-inset-* instead of hard-coded viewport edges.
  */
@@ -72,15 +73,12 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   pointer-events: none;
   z-index: 9990;
   display: none;
-  /* Read once, share with all inner elements via env() lookups. */
   padding-top:    max(env(safe-area-inset-top,    0px), 6px);
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px);
   padding-left:   max(env(safe-area-inset-left,   0px), 6px);
   padding-right:  max(env(safe-area-inset-right,  0px), 6px);
   box-sizing: border-box;
 }
-
-/* Controls only shown via JS when isMobileDevice() returns true. */
 
 /* ─── Joystick (bottom-left thumb zone) ─────────────────────────────── */
 .cc-joystick {
@@ -89,14 +87,13 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
   pointer-events: auto;
   touch-action: none;
-  /* default 110px — overridden by inline JS using clamp() to viewport. */
-  width:  110px;
-  height: 110px;
+  width:  120px;
+  height: 120px;
 }
 .cc-joystick-base {
   position: absolute;
   left: 50%; top: 50%;
-  width: 84px; height: 84px;
+  width: 88px; height: 88px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.12);
   border: 2px solid rgba(255, 255, 255, 0.30);
@@ -107,7 +104,7 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
 .cc-joystick-knob {
   position: absolute;
   left: 50%; top: 50%;
-  width: 36px; height: 36px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0.15));
   border: 2px solid rgba(255, 255, 255, 0.55);
@@ -124,28 +121,24 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   pointer-events: auto;
   touch-action: manipulation;
   display: grid;
-  /* default 4 cols × N rows, set inline by JS based on viewport */
-  grid-template-columns: repeat(4, 44px);
-  grid-auto-rows: 44px;
-  gap: 6px;
+  grid-template-columns: repeat(5, 39px);
+  grid-auto-rows: 39px;
+  gap: 5px;
   background: rgba(0, 0, 0, 0.40);
   border-radius: 14px;
-  padding: 8px;
+  padding: 7px;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  /* Avoid blowing through the top under landscape with a notch. */
-  max-height: calc(100vh - 80px);
-  max-height: calc(100dvh - 80px);
   overflow: hidden;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
 }
 .cc-action-btn {
   width: 100%;
   height: 100%;
-  border-radius: 10px;
-  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 11px;
+  border: 1.5px solid rgba(255, 255, 255, 0.58);
   color: #fff;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
@@ -155,7 +148,7 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
   transition: transform 0.06s, background 0.1s, filter 0.1s;
   user-select: none;
   -webkit-user-select: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   padding: 0;
   -webkit-appearance: none;
   appearance: none;
@@ -170,29 +163,41 @@ body.is-portrait .cc-orient-lock       { display: flex !important; }
 }
 
 /* ─── Compact mode for very short viewports (small-landscape phones) ── */
-@media (max-height: 380px) {
-  .cc-joystick       { width: 86px;  height: 86px; }
-  .cc-joystick-base  { width: 64px;  height: 64px; }
-  .cc-joystick-knob  { width: 28px;  height: 28px; }
+@media (max-height: 400px) {
+  .cc-joystick       { width: 102px;  height: 102px; }
+  .cc-joystick-base  { width: 76px;  height: 76px; }
+  .cc-joystick-knob  { width: 32px;  height: 32px; }
   .cc-action-strip {
-    grid-template-columns: repeat(4, 36px);
-    grid-auto-rows: 36px;
+    grid-template-columns: repeat(5, 34px);
+    grid-auto-rows: 34px;
+    gap: 4px;
+    padding: 6px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
+  .cc-action-btn { font-size: 13px; }
+}
+@media (max-height: 380px) {
+  .cc-joystick       { width: 90px;  height: 90px; }
+  .cc-joystick-base  { width: 66px;  height: 66px; }
+  .cc-joystick-knob  { width: 30px;  height: 30px; }
+  .cc-action-strip {
+    grid-template-columns: repeat(4, 34px);
+    grid-auto-rows: 34px;
     gap: 4px;
     padding: 6px;
   }
-  .cc-action-btn { font-size: 14px; }
+  .cc-action-btn { font-size: 13px; }
 }
 
-/* Slim landscape (tall-phone ratio with limited horizontal room) */
-@media (max-aspect-ratio: 16/10) {
-  .cc-action-strip {
-    /* Switch to 3 cols to leave more game-canvas width free. */
-    grid-template-columns: repeat(3, 42px);
-  }
-}
-@media (max-aspect-ratio: 16/10) and (max-height: 380px) {
+/* ─── Slim landscape (tall-phone ratio with limited horizontal room) ── */
+@media (max-aspect-ratio: 16/10) and (max-height: 400px) {
   .cc-action-strip {
     grid-template-columns: repeat(4, 34px);
+  }
+}
+@media (max-aspect-ratio: 16/10) {
+  .cc-action-strip {
+    grid-template-columns: repeat(4, 38px);
   }
 }
 

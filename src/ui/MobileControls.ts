@@ -242,18 +242,26 @@ export class MobileControlsOverlay {
       if (!this.actionPad) return;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Rough per-cell target size in CSS px.
-      const isShortVh = vh <= 380;
-      const cell = isShortVh ? 36 : 44;
+      const isShortVh = vh <= 400;
       const gap = isShortVh ? 4 : 6;
-      const padX = 8;
-      const cols = vw <= 0 ? 4 : (vw / vh >= 1.6 ? 4 : 3);
-      const cellW = (vw * 0.36 - padX * 2 - gap * (cols - 1)) / cols;
-      const finalCell = Math.max(30, Math.min(cell, Math.floor(cellW)));
-      this.actionPad.style.gridTemplateColumns = `repeat(${cols}, ${finalCell}px)`;
+      const padX = 7;
+      const baseCols = vw <= 0 ? 4 : (vw / vh >= 1.6 ? 4 : 5);
+      const desiredCell = isShortVh ? 34 : 39;
+      const cellW = (vw * 0.36 - padX * 2 - gap * (baseCols - 1)) / baseCols;
+      const cols = Math.max(3, Math.min(5, Math.floor(cellW)));
+      let finalCell = Math.max(32, Math.min(desiredCell, Math.floor((vw * 0.36 - padX * 2 - gap * (cols - 1)) / cols)));
+      const stripHeight = finalCell * 3 + gap * (3 - 1) + padX * 2;
+      const bottomSafe = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cc-safe-bottom') || '0') || 0;
+      const vhSpace = vh - bottomSafe - 24;
+      if (stripHeight > vhSpace && finalCell > 32) {
+        finalCell = Math.max(32, finalCell - 3);
+      }
+      const maxCols = Math.max(3, Math.min(5, Math.floor((vw * 0.38 - padX * 2 - gap * 2) / finalCell)));
+      const finalCols = Math.min(baseCols, maxCols);
+      this.actionPad.style.gridTemplateColumns = `repeat(${finalCols}, ${finalCell}px)`;
       this.actionPad.style.gridAutoRows = `${finalCell}px`;
       this.actionPad.style.gap = `${gap}px`;
-      this.actionPad.style.padding = `${padX}px`;
+      this.actionPad.style.padding = `${padX + (isShortVh ? 1 : 0)}px`;
     };
     fit();
     window.addEventListener('resize', fit);
