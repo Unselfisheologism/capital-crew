@@ -1337,6 +1337,7 @@ export class GameScene extends Phaser.Scene {
   private openMenu(): void {
     if (this.menuOpen) return;
     this.menuOpen = true;
+    if (this.mobileOverlay) this.mobileOverlay.setRoleActionsVisible(false);
 
     // Pause the game tick + AI updates by setting menu flag. Easiest:
     // freeze world by stopping the ticker.
