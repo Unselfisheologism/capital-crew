@@ -171,6 +171,11 @@ export class GameScene extends Phaser.Scene {
   private menuOpen: boolean = false;
   private pauseOverlay?: Phaser.GameObjects.Container;
 
+  private safeTop = 0;
+  private safeBottom = 0;
+  private safeLeft = 0;
+  private safeRight = 0;
+
   // MULTIPLAYER — Supabase Realtime
   private realtime: RealtimeSync | null = null;
   private multiplayerMode: boolean = false;
