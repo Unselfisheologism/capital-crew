@@ -96,6 +96,8 @@ export class GameScene extends Phaser.Scene {
   // HUD
   private hudTexts: Phaser.GameObjects.Text[] = [];
   private tickTimerText!: Phaser.GameObjects.Text;
+  private hudStreak?: Phaser.GameObjects.Text;
+  private competitionTexts: Phaser.GameObjects.Text[] = [];
 
   // AI opponents
   private aiPlayers: AIPlayer[] = [];
@@ -1217,6 +1219,17 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0).setDepth(100);
     hint.setVisible(!isMobileHint);
     this.hudControlsHint = hint;
+    this.hudStreak = this.add.text(padX, py + 8, '', { fontSize: '12px', color: '#ff9d72', fontFamily: 'Arial, sans-serif', fontStyle: 'bold', backgroundColor: 'rgba(0,0,0,0.35)', padding: { x: 6, y: 2 } }).setScrollFactor(0).setDepth(100);
+    this.hudTexts.push(this.hudStreak);
+
+    // Competition strip (top center)
+    const compY = 16 + cssSafeTop;
+    this.competitionTexts = [];
+    for (let i = 0; i < 3; i++) {
+      const slot = this.add.text(this.cameras.main.width - 14, compY + i * 18, '', { fontSize: '11px', color: '#ffffff', fontFamily: 'Arial, sans-serif', stroke: '#000', strokeThickness: 2 }).setOrigin(1,0).setScrollFactor(0).setDepth(160);
+      slot.setVisible(false);
+      this.competitionTexts.push(slot);
+    }
 
     // LOGOUT button (top-right)
     const logoutBtn = this.add
