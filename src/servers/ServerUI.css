@@ -2,7 +2,8 @@
 
 .cc-srv-root {
   position: fixed;
-  inset: 0;
+  inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+        env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
   background: radial-gradient(circle at top, #1a1a3a 0%, #0a0a1e 70%, #050510 100%);
   color: #e8e8f0;
   z-index: 9997;
@@ -10,7 +11,9 @@
   flex-direction: column;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   animation: cc-srv-in 0.3s ease-out;
+  min-height: 100dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @keyframes cc-srv-in {

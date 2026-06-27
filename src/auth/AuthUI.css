@@ -12,7 +12,10 @@
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: #e8e8f0;
   animation: cc-auth-fade 0.3s ease-out;
-  padding: 16px;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 100dvh;
 }
 
 @keyframes cc-auth-fade {
@@ -24,10 +27,10 @@
   background: linear-gradient(180deg, rgba(20, 20, 40, 0.95), rgba(10, 10, 25, 0.95));
   border: 1px solid rgba(100, 100, 200, 0.3);
   border-radius: 16px;
-  padding: 36px 32px 28px;
+  padding: clamp(18px, 3vh, 32px) clamp(16px, 3vw, 28px);
   width: 100%;
-  max-width: 380px;
-  margin: 16px;
+  max-width: min(380px, 92vw);
+  margin: auto;
   box-shadow:
     0 30px 80px rgba(0, 0, 0, 0.6),
     0 0 40px rgba(80, 80, 200, 0.15) inset;
