@@ -92,6 +92,8 @@ export class GameScene extends Phaser.Scene {
   private eHeld: boolean = false; // tracking for Hold-E (true while down, false on keyup)
   private hPressed: boolean = false;
   private eHandler!: (e: KeyboardEvent) => void;
+  private _visHandler!: () => void;
+  private _androidBackHandler!: () => void;
 
   // HUD
   private hudTexts: Phaser.GameObjects.Text[] = [];
@@ -331,6 +333,23 @@ export class GameScene extends Phaser.Scene {
     };
     document.addEventListener('keydown', this.eHandler);
     document.addEventListener('keyup', this.eHandler);
+
+    // ── Auto-pause when the player tabs away or the app goes to background ──
+    this._visHandler = () => {
+      if (document.hidden && !this.menuOpen) {
+        this.openMenu();
+      }
+    };
+    document.addEventListener('visibilitychange', this._visHandler);
+
+    // ── Android back button → open pause menu ──
+    this._androidBackHandler = () => {
+      if (!this.menuOpen) {
+        this.openMenu();
+      }
+    };
+    window.addEventListener('android-back', this._androidBackHandler);
+
     this.events.on('shutdown', this.cleanup, this);
 
     // ── Game Tick ──
@@ -809,17 +828,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(301);
 
-    const shareTxt = this.add.text(cx, cy + 155, '[ Enter — Share · R — Restart ]', {
-      fontSize: '16px',
-      color: won ? '#88ff88' : '#ff8888',
-      fontFamily: 'Arial, sans-serif',
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      padding: { x: 10, y: 6 },
-    })
-      .setOrigin(0.5)
-      .setScrollFactor(0)
-      .setDepth(301);
-
+    // On mobile, show big touch-friendly buttons instead of keyboard hint
     const shareShare = () => {
       const shareText = `Capital Crew — ${won ? 'Won' : 'Lost'} (${stats['Net Worth']})`;
       const shareData: any = { title: 'Capital Crew', text: shareText };
@@ -832,49 +841,66 @@ export class GameScene extends Phaser.Scene {
       }
     };
 
+    const doRestart = () => {
+      const cam2 = this.cameras.main;
+      const cx2 = cam2.width / 2;
+      const cy2 = cam2.height / 2;
+      const confirmBg = this.add.graphics().setScrollFactor(0).setDepth(400);
+      confirmBg.fillStyle(0x0a0a1e, 0.92);
+      confirmBg.fillRoundedRect(cx2 - 220, cy2 - 80, 440, 160, 12);
+      confirmBg.lineStyle(1, 0xff4444, 0.6);
+      confirmBg.strokeRoundedRect(cx2 - 220, cy2 - 80, 440, 160, 12);
+      const qTxt = this.add.text(cx2, cy2 - 30, 'Restart this round?', {
+        fontSize: '20px', color: '#ff6666', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
+      const subTxt2 = this.add.text(cx2, cy2 + 2, 'All progress will be lost.', {
+        fontSize: '13px', color: '#aaa', fontFamily: 'Arial, sans-serif',
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
+      const yesBtn = this.add.text(cx2 - 70, cy2 + 45, 'YES, RESTART', {
+        fontSize: '16px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        backgroundColor: 'rgba(200,50,50,0.85)', padding: { x: 14, y: 8 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+      const noBtn = this.add.text(cx2 + 70, cy2 + 45, 'CANCEL', {
+        fontSize: '16px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        backgroundColor: 'rgba(80,80,80,0.8)', padding: { x: 14, y: 8 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+      const cleanup = () => {
+        confirmBg.destroy(); qTxt.destroy(); subTxt2.destroy(); yesBtn.destroy(); noBtn.destroy();
+      };
+      yesBtn.on('pointerdown', () => { cleanup(); humanPlayer.reset(); this.scene.restart(); });
+      noBtn.on('pointerdown', cleanup);
+    };
+
+    if (this.isMobile) {
+      // Touch-friendly buttons row
+      const btnY = cy + 160;
+      const restartBtn = this.add.text(cx - 80, btnY, '🔄 Restart', {
+        fontSize: '18px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        backgroundColor: 'rgba(200,50,50,0.85)', padding: { x: 16, y: 10 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(301).setInteractive({ useHandCursor: true });
+      restartBtn.on('pointerdown', doRestart);
+
+      const shareBtn = this.add.text(cx + 80, btnY, '📤 Share', {
+        fontSize: '18px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        backgroundColor: 'rgba(50,120,200,0.85)', padding: { x: 16, y: 10 },
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(301).setInteractive({ useHandCursor: true });
+      shareBtn.on('pointerdown', shareShare);
+    }
+
+    const shareTxt = this.add.text(cx, cy + 155, this.isMobile ? '' : '[ Enter — Share · R — Restart ]', {
+      fontSize: '16px',
+      color: won ? '#88ff88' : '#ff8888',
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: this.isMobile ? 'transparent' : 'rgba(0,0,0,0.5)',
+      padding: { x: 10, y: 6 },
+    })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(301);
+
     const restartHandler = (e: KeyboardEvent) => {
       if (e.key === 'r' || e.key === 'R') {
-        // Show confirmation before wiping the game
-        const cam = this.cameras.main;
-        const cx = cam.width / 2;
-        const cy = cam.height / 2;
-        const confirmBg = this.add.graphics().setScrollFactor(0).setDepth(400);
-        confirmBg.fillStyle(0x0a0a1e, 0.92);
-        confirmBg.fillRoundedRect(cx - 220, cy - 80, 440, 160, 12);
-        confirmBg.lineStyle(1, 0xff4444, 0.6);
-        confirmBg.strokeRoundedRect(cx - 220, cy - 80, 440, 160, 12);
-        const qTxt = this.add.text(cx, cy - 30, 'Restart this round?', {
-          fontSize: '20px', color: '#ff6666', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
-        const subTxt = this.add.text(cx, cy + 2, 'All progress will be lost.', {
-          fontSize: '13px', color: '#aaa', fontFamily: 'Arial, sans-serif',
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
-        const yesBtn = this.add.text(cx - 70, cy + 45, 'YES, RESTART', {
-          fontSize: '16px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
-          backgroundColor: 'rgba(200,50,50,0.85)', padding: { x: 14, y: 8 },
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
-        const noBtn = this.add.text(cx + 70, cy + 45, 'CANCEL', {
-          fontSize: '16px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
-          backgroundColor: 'rgba(80,80,80,0.8)', padding: { x: 14, y: 8 },
-        }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
-        const cleanup = () => {
-          confirmBg.destroy(); qTxt.destroy(); subTxt.destroy(); yesBtn.destroy(); noBtn.destroy();
-          document.removeEventListener('keydown', confirmHandler);
-        };
-        const confirmHandler = (ev: KeyboardEvent) => {
-          if (ev.key === 'y' || ev.key === 'Y' || ev.key === 'Enter') {
-            cleanup();
-            humanPlayer.reset();
-            this.scene.restart();
-          }
-          if (ev.key === 'n' || ev.key === 'N' || ev.key === 'Escape') {
-            cleanup();
-          }
-        };
-        document.addEventListener('keydown', confirmHandler);
-        yesBtn.on('pointerdown', () => { cleanup(); humanPlayer.reset(); this.scene.restart(); });
-        noBtn.on('pointerdown', cleanup);
-        return;
+        doRestart();
       }
       if (e.key === 'Enter') {
         document.removeEventListener('keydown', restartHandler);
@@ -1478,11 +1504,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Buttons
+    const muteLabel = soundManager.muted ? '🔇 UNMUTE' : '🔊 MUTE';
+    let muteBtn: Phaser.GameObjects.Text | null = null;
     const buttons: Array<{ label: string; color: string; onClick: () => void }> = [
       {
         label: '▶ RESUME',
         color: 'rgba(80,200,120,0.85)',
         onClick: () => this.closeMenu(),
+      },
+      {
+        label: muteLabel,
+        color: 'rgba(100,100,100,0.85)',
+        onClick: () => {
+          soundManager.muted = !soundManager.muted;
+          if (muteBtn) muteBtn.setText(soundManager.muted ? '🔇 UNMUTE' : '🔊 MUTE');
+        },
       },
       {
         label: '🔄 RESTART ROUND',
@@ -1508,6 +1544,7 @@ export class GameScene extends Phaser.Scene {
         fontSize: '22px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
         backgroundColor: b.color, padding: { x: 24, y: 14 },
       }).setOrigin(0.5).setScrollFactor(0).setDepth(501).setInteractive({ useHandCursor: true });
+      if (b.label === muteLabel && !muteBtn) muteBtn = btn;
       btn.on('pointerover', () => btn.setScale(1.05));
       btn.on('pointerout', () => btn.setScale(1.0));
       btn.on('pointerdown', b.onClick);
@@ -3237,6 +3274,12 @@ export class GameScene extends Phaser.Scene {
     if (this.eHandler) {
       document.removeEventListener('keydown', this.eHandler);
       document.removeEventListener('keyup', this.eHandler);
+    }
+    if (this._visHandler) {
+      document.removeEventListener('visibilitychange', this._visHandler);
+    }
+    if (this._androidBackHandler) {
+      window.removeEventListener('android-back', this._androidBackHandler);
     }
     for (const node of this.nodes) node.destroy();
     this.nodes = [];

@@ -5,6 +5,7 @@
 export class SoundManager {
   private ctx: AudioContext | null = null;
   public sfxVolume: number = 0.5;
+  public muted: boolean = false;
 
   constructor() {
     try {
@@ -86,7 +87,7 @@ export class SoundManager {
     type: OscillatorType,
     vol: number
   ): void {
-    if (!this.ctx) return;
+    if (!this.ctx || this.muted) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = type;

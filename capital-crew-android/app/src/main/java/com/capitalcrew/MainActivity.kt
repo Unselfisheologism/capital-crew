@@ -67,7 +67,15 @@ class MainActivity : AppCompatActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack() else finish()
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    // Tell the web app to open pause menu instead of exiting
+                    webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('android-back'))",
+                        null
+                    )
+                }
             }
         })
     }

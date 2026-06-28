@@ -456,3 +456,23 @@ body.is-portrait .cc-srv-root { padding-bottom: 24px; }
     max-width: 960px;
   }
 }
+
+/* ── Custom modal dialogs (replace native prompt/confirm/alert) ── */
+.cc-srv-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cc-auth-fade .2s ease-out;
+}
+.cc-srv-modal {
+  background: #16162a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  max-width: 90vw;
+}

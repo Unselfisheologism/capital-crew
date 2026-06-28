@@ -34,6 +34,74 @@ export interface ServerLobbyResult {
   server?: ServerRecord;
 }
 
+/* ─────────────────── custom dialogs ─────────────────── */
+
+/** Show a custom in-app prompt (returns value or null on cancel). */
+function ccPrompt(title: string, placeholder = ''): Promise<string | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'cc-srv-modal-overlay';
+    overlay.innerHTML = `
+      <div class="cc-srv-modal" style="min-width:300px">
+        <div style="font-weight:800;font-size:16px;color:#ffd700;margin-bottom:12px">${esc(title)}</div>
+        <input class="cc-srv-input" id="cc-modal-input" placeholder="${esc(placeholder)}" style="width:100%;box-sizing:border-box;margin-bottom:14px" autofocus />
+        <div class="cc-srv-actions-row" style="justify-content:flex-end">
+          <button class="cc-srv-btn" id="cc-modal-cancel">Cancel</button>
+          <button class="cc-srv-btn cc-srv-btn-primary" id="cc-modal-ok">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector<HTMLInputElement>('#cc-modal-input')!;
+    input.focus();
+    const finish = (val: string | null) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('#cc-modal-ok')!.addEventListener('click', () => finish(input.value || null));
+    overlay.querySelector('#cc-modal-cancel')!.addEventListener('click', () => finish(null));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') finish(input.value || null); if (e.key === 'Escape') finish(null); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
+  });
+}
+
+/** Show a custom in-app confirm dialog (returns true/false). */
+function ccConfirm(message: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'cc-srv-modal-overlay';
+    overlay.innerHTML = `
+      <div class="cc-srv-modal" style="min-width:300px">
+        <div style="font-weight:800;font-size:16px;color:#ffcc00;margin-bottom:12px">${esc(message)}</div>
+        <div class="cc-srv-actions-row" style="justify-content:flex-end">
+          <button class="cc-srv-btn" id="cc-modal-cancel">Cancel</button>
+          <button class="cc-srv-btn cc-srv-btn-primary" id="cc-modal-ok">Confirm</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const finish = (val: boolean) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('#cc-modal-ok')!.addEventListener('click', () => finish(true));
+    overlay.querySelector('#cc-modal-cancel')!.addEventListener('click', () => finish(false));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(false); });
+  });
+}
+
+/** Show a custom in-app alert dialog. */
+function ccAlert(message: string): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'cc-srv-modal-overlay';
+  overlay.innerHTML = `
+    <div class="cc-srv-modal" style="min-width:300px">
+      <div style="font-weight:800;font-size:16px;color:#ff8888;margin-bottom:12px">${esc(message)}</div>
+      <div class="cc-srv-actions-row" style="justify-content:flex-end">
+        <button class="cc-srv-btn cc-srv-btn-primary" id="cc-modal-ok">OK</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('#cc-modal-ok')!.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+}
+
 interface LobbyState {
   user: AuthUser;
   currentServer: ServerRecord | null;
@@ -222,7 +290,7 @@ async function renderBrowseTab(
         });
         if (!jr.ok) {
           if (jr.error.includes('password')) {
-            const pw = prompt('This server requires a password:');
+            const pw = await ccPrompt('Enter server password:', 'Password');
             if (pw) {
               const hash = await hashPassword(pw);
               const jr2 = await joinServer({ user: state.user, server_id: srv.id, password_hash: hash });
@@ -236,7 +304,7 @@ async function renderBrowseTab(
             joinBtn.disabled = false;
             joinBtn.textContent = 'JOIN';
           } else {
-            alert(jr.error);
+            ccAlert(jr.error);
             joinBtn.disabled = false;
             joinBtn.textContent = 'JOIN';
           }
@@ -419,7 +487,7 @@ function renderJoinCodeTab(
     const res = await joinServer({ user: state.user, invite_code: code });
     if (!res.ok) {
       if (res.error.includes('password')) {
-        const pw = prompt('This server requires a password:');
+        const pw = await ccPrompt('Enter server password:', 'Password');
         if (pw) {
           const hash = await hashPassword(pw);
           const res2 = await joinServer({ user: state.user, invite_code: code, password_hash: hash });
@@ -601,7 +669,7 @@ function renderLobbyTab(
 
   body.querySelectorAll<HTMLButtonElement>('[data-kick]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Kick this player?')) return;
+      if (!await ccConfirm('Kick this player?')) return;
       btn.disabled = true;
       await kickPlayer({
         host: state.user,
@@ -614,7 +682,7 @@ function renderLobbyTab(
   });
 
   body.querySelector('#cc-lobby-leave')!.addEventListener('click', async () => {
-    if (!confirm('Leave this server?')) return;
+    if (!await ccConfirm('Leave this server?')) return;
     await leaveServer({ user: state.user, server_id: srv.id });
     state.currentServer = null;
     state.members = [];
@@ -629,14 +697,14 @@ function renderLobbyTab(
     try {
       await navigator.clipboard.writeText(code);
     } catch {
-      prompt('Copy this invite code:', code);
+      ccPrompt('Copy this invite code:', code);
     }
   });
 
   const startBtn = body.querySelector('#cc-lobby-start');
   if (startBtn) {
     startBtn.addEventListener('click', async () => {
-      if (!confirm('Start the game for all players?')) return;
+      if (!await ccConfirm('Start the game for all players?')) return;
       startBtn.textContent = 'STARTING…';
       (startBtn as HTMLButtonElement).disabled = true;
 
@@ -830,8 +898,8 @@ function renderAdminTab(
 
   // Delete server
   body.querySelector('#cc-admin-delete')!.addEventListener('click', async () => {
-    if (!confirm('DELETE this server? This cannot be undone!')) return;
-    if (!confirm('Are you ABSOLUTELY sure?')) return;
+    if (!await ccConfirm('DELETE this server? This cannot be undone!')) return;
+    if (!await ccConfirm('Are you ABSOLUTELY sure?')) return;
 
     const res = await deleteServer({ host: state.user, server_id: srv.id });
     if (res.ok) {

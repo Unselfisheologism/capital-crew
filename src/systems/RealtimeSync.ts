@@ -109,6 +109,13 @@ export class RealtimeSync {
   private lastPositionSent = 0;
   private presenceInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Reconnect state
+  private _joinOpts: Parameters<RealtimeSync['join']>[0] | null = null;
+  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private _reconnectAttempts = 0;
+  private _maxReconnectAttempts = 6; // 1+2+4+8+16+32 = 63s total
+  private _destroyed = false;
+
   readonly events = new EventBus<RealtimeEvents>();
 
   get connected(): boolean {
@@ -128,6 +135,9 @@ export class RealtimeSync {
   }): Promise<void> {
     await this.leave();
 
+    this._joinOpts = opts;
+    this._destroyed = false;
+    this._reconnectAttempts = 0;
     this.serverId = opts.serverId;
     this.userId = opts.userId;
 
@@ -182,7 +192,7 @@ export class RealtimeSync {
       this.events.emit('presence_diff', { joined: [], left: metas });
     });
 
-    // SUBSCRIBE
+    // SUBSCRIBE — with reconnect detection
     void this.channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED' && this.channel) {
         const presenceData: PresenceMeta = {
@@ -196,6 +206,14 @@ export class RealtimeSync {
 
         const metas = this.extractPresenceMetas(this.channel.presenceState());
         this.events.emit('presence_sync', metas);
+        // Reset reconnect counter on successful connection
+        this._reconnectAttempts = 0;
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        // Channel dropped — attempt reconnect if not intentionally leaving
+        if (!this._destroyed && this._joinOpts) {
+          this.events.emit('error', { message: `Connection lost (${status}). Reconnecting…` });
+          this.scheduleReconnect();
+        }
       }
     });
 
@@ -209,6 +227,13 @@ export class RealtimeSync {
 
   /** Leave the current channel and clean up. */
   async leave(): Promise<void> {
+    this._destroyed = true;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    this._joinOpts = null;
+    this._reconnectAttempts = 0;
     if (this.presenceInterval) {
       clearInterval(this.presenceInterval);
       this.presenceInterval = null;
@@ -224,6 +249,24 @@ export class RealtimeSync {
     }
     this.serverId = '';
     this.userId = '';
+  }
+
+  /** Schedule an auto-reconnect with exponential backoff. */
+  private scheduleReconnect(): void {
+    if (this._destroyed || !this._joinOpts) return;
+    if (this._reconnectTimer) return; // already scheduled
+    if (this._reconnectAttempts >= this._maxReconnectAttempts) {
+      this.events.emit('error', { message: 'Reconnect failed after multiple attempts.' });
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts), 32000);
+    this._reconnectAttempts++;
+    this.events.emit('error', { message: `Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this._reconnectAttempts}/${this._maxReconnectAttempts})…` });
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      if (this._destroyed || !this._joinOpts) return;
+      this.join(this._joinOpts);
+    }, delay);
   }
 
   /* ── SENDERS ── */
