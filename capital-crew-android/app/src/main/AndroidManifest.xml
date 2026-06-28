@@ -9,7 +9,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="Capital Crew"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CapitalCrew"
+        android:theme="@style/Theme.CapitalCrew.Splash"
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
 

@@ -63,7 +63,9 @@ export async function showLoginUI(): Promise<AuthUser | null> {
         </form>
 
         <div class="cc-auth-footer">
-          Built on Supabase · bcrypt-hashed · No email required
+          Built on Supabase · bcrypt-hashed · No email required<br>
+          <a href="/privacy.html" target="_blank" rel="noopener" class="cc-auth-link">Privacy Policy</a>
+          · <a href="/terms.html" target="_blank" rel="noopener" class="cc-auth-link">Terms of Service</a>
         </div>
       </div>
     `;

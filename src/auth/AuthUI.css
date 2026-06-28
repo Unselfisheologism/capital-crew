@@ -162,3 +162,14 @@
   color: #555577;
   letter-spacing: 0.5px;
 }
+
+.cc-auth-link {
+  color: #7eb8ff;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.cc-auth-link:hover {
+  color: #a0ccff;
+  text-decoration: underline;
+}

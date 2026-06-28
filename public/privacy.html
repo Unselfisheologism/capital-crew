@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Capital Crew</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #080818;
+      color: #c8c8d0;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.7;
+      padding: 40px 24px 80px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 {
+      font-size: 28px;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    .updated {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-size: 18px;
+      color: #ffffff;
+      margin: 28px 0 10px;
+      border-bottom: 1px solid #1a1a2e;
+      padding-bottom: 6px;
+    }
+    p, li {
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+    a {
+      color: #7eb8ff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .back {
+      display: inline-block;
+      margin-bottom: 24px;
+      color: #7eb8ff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .back:hover { text-decoration: underline; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a1a2e;
+    }
+    th { color: #ffffff; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back" href="/">← Back to Capital Crew</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: June 28, 2026</p>
+
+    <h2>1. Introduction</h2>
+    <p>Capital Crew ("we", "us", "the game") is an economic strategy game operated as a personal project. This privacy policy explains what data we collect, how we use it, and your rights regarding that data.</p>
+
+    <h2>2. Data We Collect</h2>
+    <table>
+      <tr><th>Data</th><th>Purpose</th><th>Storage</th></tr>
+      <tr><td>Username</td><td>Account identification</td><td>Supabase database (cloud)</td></tr>
+      <tr><td>Password (bcrypt hash)</td><td>Authentication</td><td>Supabase database (cloud)</td></tr>
+      <tr><td>Game session data</td><td>Multiplayer state sync</td><td>Supabase Realtime (cloud, ephemeral)</td></tr>
+      <tr><td>Server settings</td><td>Game server configuration</td><td>Supabase database (cloud)</td></tr>
+    </table>
+    <p>We do <strong>not</strong> collect: real names, email addresses, phone numbers, location data, device identifiers, browsing history, or any advertising/tracking data.</p>
+
+    <h2>3. How We Use Your Data</h2>
+    <ul>
+      <li><strong>Account creation &amp; login</strong> — Your username and hashed password are used solely to authenticate you and identify your game session.</li>
+      <li><strong>Multiplayer gameplay</strong> — Your username and in-game actions are shared with other players in your game server for real-time multiplayer synchronization.</li>
+      <li><strong>Server management</strong> — If you create a game server, your username is stored as the host identity for that server.</li>
+    </ul>
+
+    <h2>4. Data Sharing</h2>
+    <p>We do not sell, rent, or share your personal data with third parties. Your data is processed exclusively through <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a>, our hosting and database provider. Supabase processes data in accordance with their own privacy policy and SOC 2 compliance standards.</p>
+
+    <h2>5. Data Retention</h2>
+    <ul>
+      <li><strong>Account data</strong> — Retained until you request deletion.</li>
+      <li><strong>Game session data</strong> — Ephemeral; discarded when the server session ends.</li>
+      <li><strong>Temporary servers</strong> — Automatically deleted after the configured expiry period.</li>
+    </ul>
+
+    <h2>6. Data Security</h2>
+    <p>Passwords are hashed using bcrypt (10 rounds) before transmission. We never store or transmit plaintext passwords. All API communication occurs over HTTPS. Database access is restricted via row-level security policies.</p>
+
+    <h2>7. Children's Privacy</h2>
+    <p>Capital Crew is not directed at children under 13. We do not knowingly collect data from children under 13. If you are under 13, do not create an account.</p>
+
+    <h2>8. Your Rights</h2>
+    <ul>
+      <li><strong>Access</strong> — You can request a copy of the data we hold about you.</li>
+      <li><strong>Deletion</strong> — You can request deletion of your account and all associated data.</li>
+      <li><strong>Portability</strong> — You can request your data in a machine-readable format.</li>
+    </ul>
+    <p>To exercise these rights, contact us at the address below.</p>
+
+    <h2>9. Changes to This Policy</h2>
+    <p>We may update this privacy policy from time to time. Material changes will be reflected by updating the "Last updated" date above. Continued use of the game after changes constitutes acceptance of the updated policy.</p>
+
+    <h2>10. Contact</h2>
+    <p>For privacy-related inquiries, contact: <a href="mailto:privacy@capital-crew.pages.dev">privacy@capital-crew.pages.dev</a></p>
+  </div>
+</body>
+</html>
