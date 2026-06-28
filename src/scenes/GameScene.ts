@@ -157,7 +157,7 @@ export class GameScene extends Phaser.Scene {
   private riskMeterText!: Phaser.GameObjects.Text;
 
   // Notification queue (one at a time)
-  private notifQueue: { title: string; message: string }[] = [];
+  private notifQueue: { title: string; message: string; priority: number }[] = [];
   private notifActive = false;
   private notifBg: Phaser.GameObjects.Graphics | null = null;
   private notifTitle: Phaser.GameObjects.Text | null = null;
@@ -182,11 +182,18 @@ export class GameScene extends Phaser.Scene {
   private realtime: RealtimeSync | null = null;
   private multiplayerMode: boolean = false;
   private serverId: string = '';
+  private chatInputEl: HTMLInputElement | null = null;
+  private chatOpen: boolean = false;
   private remotePlayers: Map<string, {
     sprite: Phaser.Physics.Arcade.Sprite;
     label: Phaser.GameObjects.Text;
     state: PlayerState;
     lastUpdate: number;
+    /** Jitter buffer: incoming positions queued for smooth playback */
+    posBuffer: { x: number; y: number; ts: number }[];
+    /** Target position the sprite is lerping toward */
+    targetX: number;
+    targetY: number;
   }> = new Map();
 
   // SAB key (T) press detector (mirrors E/H pattern)
@@ -312,6 +319,10 @@ export class GameScene extends Phaser.Scene {
         e.preventDefault();
         this.gPressed = true;
       }
+      if ((e.key === 'c' || e.key === 'C') && this.multiplayerMode && !this.chatOpen) {
+        e.preventDefault();
+        this.openChatInput();
+      }
       if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
         // Toggle menu (M hot-button).
@@ -414,6 +425,42 @@ export class GameScene extends Phaser.Scene {
     }, 600);
     this.updateRoleHUD();
 
+    // ── ONBOARDING HINT — brief WASD prompt, fades out after 4 s ──
+    // Desktop only (mobile has on-screen buttons).
+    if (!this.isMobile) {
+      const hx = this.player.sprite.x;
+      const hy = this.player.sprite.y + 42;
+      const onbText = this.add
+        .text(hx, hy, 'WASD to move', {
+          fontSize: '13px',
+          color: '#88ddff',
+          fontFamily: 'Arial, sans-serif',
+          fontStyle: 'bold',
+          stroke: '#000',
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setDepth(200)
+        .setAlpha(0);
+      this.tweens.add({
+        targets: onbText,
+        alpha: { from: 0, to: 0.9 },
+        y: hy - 8,
+        duration: 600,
+        ease: 'Sine.easeOut',
+      });
+      this.time.delayedCall(4000, () => {
+        if (!onbText.active) return;
+        this.tweens.add({
+          targets: onbText,
+          alpha: 0,
+          duration: 800,
+          ease: 'Sine.easeIn',
+          onComplete: () => onbText.destroy(),
+        });
+      });
+    }
+
     // ── ASSASSIN MODE: pick a secret killer from the AI ──
     if (!this.practiceMode) {
       this.assassinId = assignAssassin(AI_PERSONALITIES);
@@ -458,6 +505,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(): void {
+    // Smooth remote player movement each frame
+    this.tickRemoteInterpolation();
+
     // Proximity scanning
     const px = this.player.sprite.x;
     const py = this.player.sprite.y;
@@ -514,7 +564,12 @@ export class GameScene extends Phaser.Scene {
       this.player.joystickVector.y = vy;
     }
 
-    this.player.update(humanPlayer.speedMultiplier);
+    // Block movement when a menu or panel is open (prevents W/S conflict)
+    if (this.menuOpen || this.panel.isActive) {
+      this.player.sprite.setVelocity(0, 0);
+    } else {
+      this.player.update(humanPlayer.speedMultiplier);
+    }
 
     // ── MULTIPLAYER — broadcast position to other clients ──
     if (this.multiplayerMode && this.realtime) {
@@ -584,7 +639,8 @@ export class GameScene extends Phaser.Scene {
     if (this.gPressed) {
       this.gPressed = false;
       if (this.practiceMode) {
-        this.showNotification('🎓 PRACTICE', 'Trade still works in practice (vs AI only — picks AI).');
+        this.showNotification('🎓 PRACTICE', 'No other players to trade with in practice mode.');
+        return;
       }
       if (this.tradeModalOpen) this.closeTradeModal();
       else this.tryOpenTradeModal();
@@ -778,9 +834,47 @@ export class GameScene extends Phaser.Scene {
 
     const restartHandler = (e: KeyboardEvent) => {
       if (e.key === 'r' || e.key === 'R') {
-        document.removeEventListener('keydown', restartHandler);
-        humanPlayer.reset();
-        this.scene.restart();
+        // Show confirmation before wiping the game
+        const cam = this.cameras.main;
+        const cx = cam.width / 2;
+        const cy = cam.height / 2;
+        const confirmBg = this.add.graphics().setScrollFactor(0).setDepth(400);
+        confirmBg.fillStyle(0x0a0a1e, 0.92);
+        confirmBg.fillRoundedRect(cx - 220, cy - 80, 440, 160, 12);
+        confirmBg.lineStyle(1, 0xff4444, 0.6);
+        confirmBg.strokeRoundedRect(cx - 220, cy - 80, 440, 160, 12);
+        const qTxt = this.add.text(cx, cy - 30, 'Restart this round?', {
+          fontSize: '20px', color: '#ff6666', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
+        const subTxt = this.add.text(cx, cy + 2, 'All progress will be lost.', {
+          fontSize: '13px', color: '#aaa', fontFamily: 'Arial, sans-serif',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(401);
+        const yesBtn = this.add.text(cx - 70, cy + 45, 'YES, RESTART', {
+          fontSize: '16px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+          backgroundColor: 'rgba(200,50,50,0.85)', padding: { x: 14, y: 8 },
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+        const noBtn = this.add.text(cx + 70, cy + 45, 'CANCEL', {
+          fontSize: '16px', color: '#fff', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+          backgroundColor: 'rgba(80,80,80,0.8)', padding: { x: 14, y: 8 },
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(401).setInteractive({ useHandCursor: true });
+        const cleanup = () => {
+          confirmBg.destroy(); qTxt.destroy(); subTxt.destroy(); yesBtn.destroy(); noBtn.destroy();
+          document.removeEventListener('keydown', confirmHandler);
+        };
+        const confirmHandler = (ev: KeyboardEvent) => {
+          if (ev.key === 'y' || ev.key === 'Y' || ev.key === 'Enter') {
+            cleanup();
+            humanPlayer.reset();
+            this.scene.restart();
+          }
+          if (ev.key === 'n' || ev.key === 'N' || ev.key === 'Escape') {
+            cleanup();
+          }
+        };
+        document.addEventListener('keydown', confirmHandler);
+        yesBtn.on('pointerdown', () => { cleanup(); humanPlayer.reset(); this.scene.restart(); });
+        noBtn.on('pointerdown', cleanup);
+        return;
       }
       if (e.key === 'Enter') {
         document.removeEventListener('keydown', restartHandler);
@@ -1507,8 +1601,10 @@ export class GameScene extends Phaser.Scene {
   // NOTIFICATIONS
   // ──────────────────────────────────────────────────────────────
 
-  private showNotification(title: string, message: string): void {
-    this.notifQueue.push({ title, message });
+  private showNotification(title: string, message: string, priority: number = 0): void {
+    this.notifQueue.push({ title, message, priority });
+    // Sort: higher priority first (emergencies/sabotage jump ahead of low-pri fluff)
+    this.notifQueue.sort((a, b) => b.priority - a.priority);
     if (!this.notifActive) this.showNextNotif();
   }
 
@@ -1605,9 +1701,10 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => danger.destroy(),
     });
     this.showNotification(
-      '⚠️ ASSASSIN ALERT',
-      `${this.assassinState.name} is hunting you. Stay out of their sight!`,
-    );
+          '⚠️ ASSASSIN ALERT',
+          `${this.assassinState.name} is hunting you. Stay out of their sight!`,
+          2,
+        );
   }
 
   /** Setup the assassin view-cone & risk meter graphics. */
@@ -1666,9 +1763,10 @@ export class GameScene extends Phaser.Scene {
       if (!this.assassinAlertShownKey.startsWith(key)) {
         this.assassinAlertShownKey = key;
         this.showNotification(
-          '⚠️ HUNTED',
-          `${this.assassinState.name} sees you! Lose them!`,
-        );
+                  '⚠️ HUNTED',
+                  `${this.assassinState.name} sees you! Lose them!`,
+                  2,
+                );
       }
 
       // ── Strike at stealth >= 1.0 if cooldown elapsed ──
@@ -1760,9 +1858,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.showNotification(
-      '🩸 BANDIT KILL',
-      `${this.assassinState.name} mugged you for $${stolen.toLocaleString()}!`,
-    );
+          '🩸 BANDIT KILL',
+          `${this.assassinState.name} mugged you for $${stolen.toLocaleString()}!`,
+          2,
+        );
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -1981,7 +2080,7 @@ export class GameScene extends Phaser.Scene {
     const tpl = EMERGENCY_TEMPLATES.find((t) => t.type === e.type)!;
     const z = ZONES.find((zz) => zz.id === e.zoneId);
     const where = z ? ` in ${z.label}` : '';
-    this.showNotification(tpl.label, `Get to ${z?.label ?? 'the zone'} and fix it!${where}`);
+    this.showNotification(tpl.label, `Get to ${z?.label ?? 'the zone'} and fix it!${where}`, 3);
   }
 
   /** Per-frame: tick emergency timer + check player proximity for fix. */
@@ -2007,9 +2106,10 @@ export class GameScene extends Phaser.Scene {
       const tpl = EMERGENCY_TEMPLATES.find((t) => t.type === e.type)!;
       this.expireEmergencyPenalty();
       this.showNotification(
-        '💀 SYSTEM FAILURE',
-        `${tpl.label} unresolved — 30% penalty wiped from all players!`,
-      );
+              '💀 SYSTEM FAILURE',
+              `${tpl.label} unresolved — 30% penalty wiped from all players!`,
+              3,
+            );
       this.cameras.main.flash(400, 80, 80, 80, false);
       this.cameras.main.shake(300, 0.012);
       // Clear UI
@@ -2059,9 +2159,10 @@ export class GameScene extends Phaser.Scene {
         e.fixedBy = humanPlayer.name;
         const tpl = EMERGENCY_TEMPLATES.find((t) => t.type === e.type)!;
         this.showNotification(
-          '✅ EMERGENCY FIXED',
-          `${tpl.label} resolved! Bonus +$500 to ${humanPlayer.name}.`,
-        );
+                    '✅ EMERGENCY FIXED',
+                    `${e.fixedBy ?? 'Someone'} resolved it! Bonus +$500 applied.`,
+                    2,
+                  );
         humanPlayer.cash += 500;
         this.destroyEmergencyUI();
         setTimeout(() => {
@@ -2344,7 +2445,7 @@ export class GameScene extends Phaser.Scene {
 
     const ZONE = zoneId ? ZONES.find((z) => z.id === zoneId) : undefined;
     const where = ZONE ? ` in ${ZONE.label}` : '';
-    this.showNotification('⚠️ SABOTAGE', `${def.name} deployed${where}!`);
+    this.showNotification('⚠️ SABOTAGE', `${def.name} deployed${where}!`, 3);
 
     // Tier 1–2 apply instant effect; Tier 3 fires immediately then goes away
     if (def.durationMs === 0) {
@@ -2392,7 +2493,7 @@ export class GameScene extends Phaser.Scene {
       const event = new Phaser.Events.EventEmitter();
       event.on('deadline', () => {});
       void event;
-      this.showNotification('🏦 BANK AUDIT', 'AI debt interest +10% for 30s.');
+      this.showNotification('🏦 BANK AUDIT', 'AI debt interest +10% for 30s.', 3);
     }
     // Zone quarantine + rent strike + debt freeze: ticked in updateActiveSabotages
   }
@@ -2410,7 +2511,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.flash(400, 200, 50, 50, false);
       this.cameras.main.shake(300, 0.01);
       this.showNotification('📉 MARKET CRASH',
-        `Total $${totalLost.toLocaleString()} wiped out across the economy.`);
+              `Total $${totalLost.toLocaleString()} wiped out across the economy.`, 3);
     } else if (id === 'bankrupt_tycoon') {
       let stripped = 0;
       for (const ai of this.aiPlayers) {
@@ -2422,7 +2523,7 @@ export class GameScene extends Phaser.Scene {
         }
       }
       this.showNotification('🏚️ BANKRUPT TYCOON',
-        `${stripped} ${stripped === 1 ? 'property was' : 'properties were'} seized from indebted AIs.`);
+              `${stripped} ${stripped === 1 ? 'property was' : 'properties were'} seized from indebted AIs.`, 3);
     } else if (id === 'zone_quarantine') {
       // already handled via duration
     }
@@ -2863,11 +2964,71 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ──────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────
+  // CHAT INPUT (multiplayer)
+  // ──────────────────────────────────────────────────────────────
+
+  private openChatInput(): void {
+    if (this.chatOpen || !this.multiplayerMode) return;
+    this.chatOpen = true;
+
+    const el = document.createElement('input');
+    el.type = 'text';
+    el.placeholder = 'Type a message…';
+    el.maxLength = 200;
+    Object.assign(el.style, {
+      position: 'fixed',
+      bottom: '60px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '320px',
+      maxWidth: '80vw',
+      padding: '8px 12px',
+      fontSize: '14px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#fff',
+      background: 'rgba(10,10,30,0.92)',
+      border: '1px solid rgba(100,180,255,0.4)',
+      borderRadius: '8px',
+      outline: 'none',
+      zIndex: '500',
+    });
+
+    const close = () => {
+      el.remove();
+      this.chatOpen = false;
+    };
+
+    el.addEventListener('keydown', (ev: KeyboardEvent) => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') {
+        const msg = el.value.trim();
+        if (msg && this.realtime) {
+          const userCtx = (window as any).__capcrewUser;
+          this.realtime.sendGameEvent('chat', {
+            fromName: userCtx?.username ?? 'Player',
+            message: msg,
+          });
+          // Show own message locally
+          this.showNotification(`💬 ${userCtx?.username ?? 'You'}`, msg);
+        }
+        close();
+      } else if (ev.key === 'Escape') {
+        close();
+      }
+    });
+
+    el.addEventListener('blur', close);
+    document.body.appendChild(el);
+    el.focus();
+  }
+
+  // ──────────────────────────────────────────────────────────────
   // CLEANUP
   // ──────────────────────────────────────────────────────────────
 
   // ──────────────────────────────────────────────────────────────
-  // MULTIPLAYER — Realtime event handlers
+  // MULTIPLAYER
   // ──────────────────────────────────────────────────────────────
 
   private setupRealtimeListeners(): void {
@@ -2887,6 +3048,11 @@ export class GameScene extends Phaser.Scene {
     // Game events (emergency, sabotage, trade, chat)
     rt.events.on('game_event', (ev: GameEventPayload) => {
       this.onRemoteGameEvent(ev);
+    });
+
+    // Connection error / reconnect
+    rt.events.on('error', (err: { message: string }) => {
+      this.showNotification('⚠️ CONNECTION', err.message);
     });
 
     // Presence: players joined or left
@@ -2950,6 +3116,9 @@ export class GameScene extends Phaser.Scene {
       label,
       state,
       lastUpdate: Date.now(),
+      posBuffer: [],
+      targetX: MAP_W / 2,
+      targetY: MAP_H / 2,
     });
   }
 
@@ -2966,11 +3135,32 @@ export class GameScene extends Phaser.Scene {
   private onRemotePosition(p: PositionPayload): void {
     const rp = this.remotePlayers.get(p.userId);
     if (!rp) return;
-    // Simple lerp — remote player glides to new position
-    rp.sprite.x = Phaser.Math.Linear(rp.sprite.x, p.x, 0.3);
-    rp.sprite.y = Phaser.Math.Linear(rp.sprite.y, p.y, 0.3);
-    rp.label.setPosition(rp.sprite.x, rp.sprite.y - 26);
+    // Buffer the position; tickRemoteInterpolation drains it smoothly
+    rp.posBuffer.push({ x: p.x, y: p.y, ts: p.ts });
+    // Cap buffer to prevent memory build-up on stalled connections
+    if (rp.posBuffer.length > 10) rp.posBuffer.shift();
     rp.lastUpdate = p.ts;
+  }
+
+  /** Called every frame — drains the position buffer and lerps toward the next target. */
+  private tickRemoteInterpolation(): void {
+    const lerpFactor = 0.15; // smooth glide, ~15% per frame
+    for (const rp of this.remotePlayers.values()) {
+      // Pop next buffered target when we've nearly reached the current one
+      if (rp.posBuffer.length > 0) {
+        const dx = rp.targetX - rp.sprite.x;
+        const dy = rp.targetY - rp.sprite.y;
+        if (dx * dx + dy * dy < 4) {
+          const next = rp.posBuffer.shift()!;
+          rp.targetX = next.x;
+          rp.targetY = next.y;
+        }
+      }
+      // Lerp sprite toward the current target
+      rp.sprite.x = Phaser.Math.Linear(rp.sprite.x, rp.targetX, lerpFactor);
+      rp.sprite.y = Phaser.Math.Linear(rp.sprite.y, rp.targetY, lerpFactor);
+      rp.label.setPosition(rp.sprite.x, rp.sprite.y - 26);
+    }
   }
 
   /** Handle incoming tick sync from a remote player. */
@@ -3006,9 +3196,10 @@ export class GameScene extends Phaser.Scene {
           this.currentEmergency.resolved = true;
           this.currentEmergency.fixedBy = ev.data.fixedBy as string;
           this.showNotification(
-            '✅ FIXED',
-            `Emergency resolved by ${ev.data.fixedBy ?? 'someone'}!`,
-          );
+                      '✅ FIXED',
+                      `Emergency resolved by ${ev.data.fixedBy ?? 'someone'}!`,
+                      2,
+                    );
           this.currentEmergency = null;
         }
         break;
@@ -3023,9 +3214,10 @@ export class GameScene extends Phaser.Scene {
             const def = SABOTAGES.find((s) => s.id === sabId);
             if (def) {
               this.showNotification(
-                `⚡ ${def.icon} ${def.name}`,
-                `${def.desc} (activated by ${ev.data.fromName ?? 'someone'})`,
-              );
+                              `⚡ ${def.icon} ${def.name}`,
+                              `${def.desc} (activated by ${ev.data.fromName ?? 'someone'})`,
+                              3,
+                            );
             }
           }
         }
